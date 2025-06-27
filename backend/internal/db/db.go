@@ -21,8 +21,12 @@ import (
 
 var (
 	DB            *gorm.DB
-	encryptionKey = []byte(os.Getenv("CONN_ENCRYPTION_KEY"))
+	encryptionKey []byte
 )
+
+func SetEncryptionKeyFromEnv() {
+	encryptionKey = []byte(os.Getenv("CONN_ENCRYPTION_KEY"))
+}
 
 func InitDB(dsn string) error {
 	var err error

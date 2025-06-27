@@ -32,15 +32,23 @@ func ExecuteQueryHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Connection not found"})
 		return
 	}
+	var dbType = conn.DBType
+	if dbType != "sqlite" && dbType != "postgres" && dbType != "mysql" && dbType != "mongodb" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported DB type"})
+		return
+	}
 	connStr, err := db.Decrypt(conn.ConnString)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decrypt connection string"})
 		return
 	}
 	var result interface{}
-	var dbType = conn.DBType
+	driverName := dbType
+	if dbType == "sqlite" {
+		driverName = "sqlite3"
+	}
 	if dbType == "sqlite" || dbType == "postgres" || dbType == "mysql" {
-		dbConn, err := db.OpenSQLWithPool(dbType, connStr)
+		dbConn, err := db.OpenSQLWithPool(driverName, connStr)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to DB"})
 			return
@@ -91,9 +99,6 @@ func ExecuteQueryHandler(c *gin.Context) {
 			return
 		}
 		result = docs
-	} else {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported DB type"})
-		return
 	}
 	// Save to query history
 	resultSample := ""
