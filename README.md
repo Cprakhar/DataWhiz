@@ -7,7 +7,7 @@ A unified database management interface with natural language (LLM) support.
 ```
 /DataWhiz
   /backend    # Go (Gin) backend, JWT & OAuth, DB connectors, LLM integration
-  /frontend   # (Coming soon) Next.js/React frontend
+  /frontend   # Next.js/React frontend (coming soon)
   /docs       # Technical and API documentation
   README.md
   .gitignore
@@ -15,16 +15,19 @@ A unified database management interface with natural language (LLM) support.
 ```
 
 ## Features
-- Connect and manage multiple databases (PostgreSQL, MongoDB, etc.)
-- Natural language query assistant (LLM-powered)
-- Secure authentication (JWT, OAuth)
+- Connect and manage multiple databases (PostgreSQL, MongoDB, MySQL, SQLite, etc.)
+- Natural language query assistant (Gemini LLM-powered)
+- Secure authentication (JWT, OAuth with Google/GitHub)
 - Query history, saved queries, and user profiles
+- Schema introspection and ERD
 - Extensible, modern UI (frontend coming soon)
+- Caching, connection pooling, and rate limiting for performance
+- Structured logging and error handling
 
 ## Getting Started
 
 ### Backend
-1. Copy `.env.example` to `.env` and fill in secrets for Google/GitHub OAuth, JWT, and session.
+1. Copy `.env.example` to `.env` and fill in secrets for Google/GitHub OAuth, JWT, Gemini, and session.
 2. Install Go dependencies:
    ```bash
    cd backend
@@ -34,9 +37,14 @@ A unified database management interface with natural language (LLM) support.
    ```bash
    go run ./cmd/server.go
    ```
+4. See [backend/docs/api.md](backend/docs/api.md) for API documentation and usage examples.
 
 ### Frontend
 - (To be added)
+
+## Documentation
+- [API Reference](backend/docs/api.md)
+- [Backend Tech Spec](docs/backend-tech-spec.md)
 
 ## Contributing
 - PRs and issues welcome!
