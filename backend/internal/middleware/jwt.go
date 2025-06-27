@@ -12,13 +12,22 @@ var JwtSecret = []byte("supersecretkey") // TODO: Load from env
 
 func AuthRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get token from Authorization header
+		// Try Authorization header first
 		header := c.GetHeader("Authorization")
-		if header == "" || !strings.HasPrefix(header, "Bearer ") {
+		tokenStr := ""
+		if header != "" && strings.HasPrefix(header, "Bearer ") {
+			tokenStr = strings.TrimPrefix(header, "Bearer ")
+		} else {
+			// Fallback to cookie
+			cookie, err := c.Cookie("token")
+			if err == nil {
+				tokenStr = cookie
+			}
+		}
+		if tokenStr == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing or invalid token"})
 			return
 		}
-		tokenStr := strings.TrimPrefix(header, "Bearer ")
 		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 			return JwtSecret, nil
 		})

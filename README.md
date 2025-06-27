@@ -7,7 +7,7 @@ A unified database management interface with natural language (LLM) support.
 ```
 /DataWhiz
   /backend    # Go (Gin) backend, JWT & OAuth, DB connectors, LLM integration
-  /frontend   # Next.js/React frontend (coming soon)
+  /frontend   # Next.js/React frontend (modern UI, auth, dashboard)
   /docs       # Technical and API documentation
   README.md
   .gitignore
@@ -17,10 +17,10 @@ A unified database management interface with natural language (LLM) support.
 ## Features
 - Connect and manage multiple databases (PostgreSQL, MongoDB, MySQL, SQLite, etc.)
 - Natural language query assistant (Gemini LLM-powered)
-- Secure authentication (JWT, OAuth with Google/GitHub)
-- Query history, saved queries, and user profiles
+- Secure authentication (JWT, OAuth with Google/GitHub, httpOnly cookies)
+- Query history, saved queries, and user profiles (avatar, name)
 - Schema introspection and ERD
-- Extensible, modern UI (frontend coming soon)
+- Extensible, modern UI (Next.js, Tailwind, shadcn/ui)
 - Caching, connection pooling, and rate limiting for performance
 - Structured logging and error handling
 
@@ -40,11 +40,22 @@ A unified database management interface with natural language (LLM) support.
 4. See [backend/docs/api.md](backend/docs/api.md) for API documentation and usage examples.
 
 ### Frontend
-- (To be added)
+1. Copy `.env.example` to `.env` in `/frontend` and fill in any required variables.
+2. Install dependencies:
+   ```bash
+   cd frontend
+   npm install
+   ```
+3. Run the frontend dev server:
+   ```bash
+   npm run dev
+   ```
+4. The app will be available at [http://localhost:3000](http://localhost:3000)
 
 ## Documentation
 - [API Reference](backend/docs/api.md)
 - [Backend Tech Spec](docs/backend-tech-spec.md)
+- [Frontend Tech Spec](docs/frontend-tech-spec.md)
 
 ## Contributing
 - PRs and issues welcome!

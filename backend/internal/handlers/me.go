@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"datawhiz/internal/db"
 	"datawhiz/internal/middleware"
+	"datawhiz/internal/models"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -13,6 +15,13 @@ func MeHandler(c *gin.Context) {
 	tokenStr := ""
 	if len(header) > 7 && header[:7] == "Bearer " {
 		tokenStr = header[7:]
+	}
+	if tokenStr == "" {
+		// Try cookie
+		cookie, err := c.Cookie("token")
+		if err == nil {
+			tokenStr = cookie
+		}
 	}
 	parsed, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		return middleware.JwtSecret, nil
@@ -26,5 +35,22 @@ func MeHandler(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid claims"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"user_id": claims["user_id"], "email": claims["email"]})
+	userID, ok := claims["user_id"].(float64)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user_id"})
+		return
+	}
+	var user models.User
+	if err := db.DB.First(&user, uint(userID)).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+		return
+	}
+	// For now, use email as name, and no avatar field in DB
+	c.JSON(http.StatusOK, gin.H{
+		"user_id":    user.ID,
+		"email":      user.Email,
+		"name":       user.Name,
+		"provider":   user.OAuthProvider,
+		"avatar_url": user.AvatarURL,
+	})
 }

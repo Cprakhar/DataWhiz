@@ -40,9 +40,12 @@ func RegisterHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
 		return
 	}
+	// Capitalize initial letter of email and set name as everything before '@' with capital initial
+	localPart := strings.SplitN(req.Email, "@", 2)[0]
 	user := models.User{
 		Email:        strings.ToLower(req.Email),
 		PasswordHash: string(hash),
+		Name:         localPart,
 		CreatedAt:    time.Now(),
 	}
 	if err := db.DB.Create(&user).Error; err != nil {
@@ -82,5 +85,29 @@ func LoginHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"token": tokenString, "user_id": user.ID})
+	// Set JWT as httpOnly cookie
+	c.SetCookie(
+		"token",
+		tokenString,
+		60*60*24, // 1 day
+		"/",
+		"localhost", // Change to your domain in production
+		false,       // Set to true if using HTTPS
+		true,        // httpOnly
+	)
+	c.JSON(http.StatusOK, gin.H{"user_id": user.ID})
+}
+
+func LogoutHandler(c *gin.Context) {
+	// Clear the JWT cookie
+	c.SetCookie(
+		"token",
+		"",
+		-1, // Expire immediately
+		"/",
+		"localhost", // Change to your domain in production
+		false,       // Set to true if using HTTPS
+		true,        // httpOnly
+	)
+	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }

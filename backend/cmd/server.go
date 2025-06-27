@@ -5,10 +5,19 @@ import (
 	"datawhiz/internal/handlers"
 	"datawhiz/internal/middleware"
 
+	"log"
+
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Load .env for local development
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Println("No .env file found or error loading .env")
+	}
+
 	db.InitDB("datawhiz.db")
 
 	r := gin.Default()
@@ -19,6 +28,7 @@ func main() {
 	r.POST("/auth/register", handlers.RegisterHandler)
 	r.POST("/auth/login", handlers.LoginHandler)
 	r.POST("/auth/refresh", handlers.RefreshHandler)
+	r.POST("/auth/logout", handlers.LogoutHandler)
 
 	handlers.SetupOAuthRoutes(r)
 

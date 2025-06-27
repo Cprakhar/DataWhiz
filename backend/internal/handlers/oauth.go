@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -29,6 +30,10 @@ func InitOAuth() {
 
 func OAuthLoginHandler(provider string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log.Printf("OAuthLoginHandler provider: %s", provider)
+		q := c.Request.URL.Query()
+		q.Set("provider", provider)
+		c.Request.URL.RawQuery = q.Encode()
 		gothic.BeginAuthHandler(c.Writer, c.Request)
 	}
 }
@@ -49,6 +54,8 @@ func OAuthCallbackHandler(provider string) gin.HandlerFunc {
 				user = models.User{
 					Email:         email,
 					OAuthProvider: provider,
+					Name:          userData.Name,
+					AvatarURL:     userData.AvatarURL,
 					CreatedAt:     time.Now(),
 				}
 				db.DB.Create(&user)
@@ -56,6 +63,11 @@ func OAuthCallbackHandler(provider string) gin.HandlerFunc {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "DB error"})
 				return
 			}
+		} else {
+			// Update name/avatar if changed
+			user.Name = userData.Name
+			user.AvatarURL = userData.AvatarURL
+			db.DB.Save(&user)
 		}
 		// Issue JWT
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -68,13 +80,27 @@ func OAuthCallbackHandler(provider string) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"token": tokenString, "user_id": user.ID, "provider": provider})
+		// Set JWT as httpOnly cookie with SameSite=Lax for cross-origin dev, and domain left empty for current host
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name:     "token",
+			Value:    tokenString,
+			Path:     "/",
+			Domain:   "", // Use current domain for dev/prod flexibility
+			HttpOnly: true,
+			Secure:   false,                // Set to true if using HTTPS
+			SameSite: http.SameSiteLaxMode, // Lax is safe for most auth flows
+			MaxAge:   60 * 60 * 24,         // 1 day
+		})
+		// Redirect to dashboard (no token in URL)
+		c.Redirect(http.StatusFound, "http://localhost:3000/dashboard")
 	}
 }
 
 func SetupOAuthRoutes(r *gin.Engine) {
-	store := cookie.NewStore([]byte("secret-session-key"))
+	secret := os.Getenv("SESSION_SECRET")
+	store := cookie.NewStore([]byte(secret))
 	r.Use(sessions.Sessions("auth-session", store))
+	gothic.Store = store
 	InitOAuth()
 
 	r.GET("/auth/google", OAuthLoginHandler("google"))
