@@ -16,6 +16,7 @@ import (
 )
 
 type RegisterRequest struct {
+	Name     string `json:"name" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=8"`
 }
@@ -40,19 +41,24 @@ func RegisterHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
 		return
 	}
-	// Capitalize initial letter of email and set name as everything before '@' with capital initial
-	localPart := strings.SplitN(req.Email, "@", 2)[0]
+
 	user := models.User{
 		Email:        strings.ToLower(req.Email),
 		PasswordHash: string(hash),
-		Name:         localPart,
+		Name:         strings.TrimSpace(req.Name),
+		AvatarURL:    "/user-default.svg",
 		CreatedAt:    time.Now(),
 	}
 	if err := db.DB.Create(&user).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully"})
+	// After registration, do NOT log in the user automatically. Just return user info (no cookie).
+	c.JSON(http.StatusOK, gin.H{
+		"user_id":    user.ID,
+		"avatar_url": user.AvatarURL,
+		"name":       user.Name,
+	})
 }
 
 func LoginHandler(c *gin.Context) {
@@ -78,7 +84,7 @@ func LoginHandler(c *gin.Context) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": user.ID,
 		"email":   user.Email,
-		"exp":     time.Now().Add(24 * time.Hour).Unix(),
+		"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
 	})
 	tokenString, err := token.SignedString(middleware.JwtSecret)
 	if err != nil {
@@ -86,16 +92,21 @@ func LoginHandler(c *gin.Context) {
 		return
 	}
 	// Set JWT as httpOnly cookie
-	c.SetCookie(
-		"token",
-		tokenString,
-		60*60*24, // 1 day
-		"/",
-		"localhost", // Change to your domain in production
-		false,       // Set to true if using HTTPS
-		true,        // httpOnly
-	)
-	c.JSON(http.StatusOK, gin.H{"user_id": user.ID})
+	http.SetCookie(c.Writer, &http.Cookie{
+    Name:     "token",
+    Value:    tokenString,
+    Path:     "/",
+    Domain:   "", // Use current domain for dev/prod flexibility
+    HttpOnly: true,
+    Secure:   false,                // Set to true if using HTTPS
+    SameSite: http.SameSiteLaxMode, // Lax is safe for most auth flows
+    MaxAge:   60 * 60 * 24 * 7,     // 7 day
+	})
+	c.JSON(http.StatusOK, gin.H{
+		"user_id":    user.ID,
+		"avatar_url": user.AvatarURL,
+		"name":       user.Name,
+	})
 }
 
 func LogoutHandler(c *gin.Context) {
@@ -105,9 +116,9 @@ func LogoutHandler(c *gin.Context) {
 		"",
 		-1, // Expire immediately
 		"/",
-		"localhost", // Change to your domain in production
-		false,       // Set to true if using HTTPS
-		true,        // httpOnly
+		"",    // Change to your domain in production
+		false, // Set to true if using HTTPS
+		true,  // httpOnly
 	)
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }

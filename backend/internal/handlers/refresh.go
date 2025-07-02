@@ -36,7 +36,7 @@ func RefreshHandler(c *gin.Context) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": claims["user_id"],
 		"email":   claims["email"],
-		"exp":     time.Now().Add(24 * time.Hour).Unix(),
+		"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
 	})
 	tokenString, err := token.SignedString(middleware.JwtSecret)
 	if err != nil {

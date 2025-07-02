@@ -33,7 +33,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       })
       .catch(() => {
-        // Ignore network or 401 errors silently
         setUser(null);
         setLoading(false);
       });

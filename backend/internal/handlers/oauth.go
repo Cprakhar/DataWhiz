@@ -73,7 +73,7 @@ func OAuthCallbackHandler(provider string) gin.HandlerFunc {
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 			"user_id": user.ID,
 			"email":   user.Email,
-			"exp":     time.Now().Add(24 * time.Hour).Unix(),
+			"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
 		})
 		tokenString, err := token.SignedString(middleware.JwtSecret)
 		if err != nil {
@@ -89,7 +89,7 @@ func OAuthCallbackHandler(provider string) gin.HandlerFunc {
 			HttpOnly: true,
 			Secure:   false,                // Set to true if using HTTPS
 			SameSite: http.SameSiteLaxMode, // Lax is safe for most auth flows
-			MaxAge:   60 * 60 * 24,         // 1 day
+			MaxAge:   60 * 60 * 24 * 7,     // 7 day
 		})
 		// Redirect to dashboard (no token in URL)
 		c.Redirect(http.StatusFound, "http://localhost:3000/dashboard")
