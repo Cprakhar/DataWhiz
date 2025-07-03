@@ -7,14 +7,12 @@ import (
 	"net/http"
 	"time"
 
-	"datawhiz/internal/utils"
 	"datawhiz/internal/db"
-	"datawhiz/internal/middleware"
 	"datawhiz/internal/models"
+	cache "datawhiz/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/golang-jwt/jwt/v5"
 	_ "github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -23,31 +21,22 @@ import (
 type ConnectRequest struct {
 	DBType     string `json:"db_type" binding:"required"`
 	ConnString string `json:"conn_string" binding:"required"`
+	Name       string `json:"name"`
 }
 
 var schemaCache = cache.NewCache()
 
+// getUserIDFromContext now simply reads the user_id set by the AuthRequired middleware
 func getUserIDFromContext(c *gin.Context) (uint, bool) {
-	header := c.GetHeader("Authorization")
-	tokenStr := ""
-	if len(header) > 7 && header[:7] == "Bearer " {
-		tokenStr = header[7:]
-	}
-	parsed, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-		return middleware.JwtSecret, nil
-	})
-	if err != nil || !parsed.Valid {
+	val, exists := c.Get("user_id")
+	if !exists {
 		return 0, false
 	}
-	claims, ok := parsed.Claims.(jwt.MapClaims)
-	if !ok || claims["user_id"] == nil {
-		return 0, false
-	}
-	userIDFloat, ok := claims["user_id"].(float64)
+	userID, ok := val.(uint)
 	if !ok {
 		return 0, false
 	}
-	return uint(userIDFloat), true
+	return userID, true
 }
 
 func ConnectDBHandler(c *gin.Context) {
@@ -95,17 +84,69 @@ func ConnectDBHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt connection string"})
 		return
 	}
+
+	// Check for duplicate (same user, same db_type, same decrypted conn_string)
+	var existing []models.Connection
+	if err := db.DB.Where("user_id = ? AND db_type = ?", userID, req.DBType).Find(&existing).Error; err == nil {
+		for _, ex := range existing {
+			dec, derr := db.Decrypt(ex.ConnString)
+			if derr == nil && dec == req.ConnString {
+				c.JSON(http.StatusConflict, gin.H{"error": "Duplicate connection: this connection string already exists for this user and database type."})
+				return
+			}
+		}
+	}
+
 	conn := models.Connection{
 		UserID:     userID,
 		DBType:     req.DBType,
 		ConnString: encryptedConn,
 		CreatedAt:  time.Now(),
+		Name:       req.Name,
 	}
 	if err := db.DB.Create(&conn).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save connection"})
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"connection_id": conn.ID})
+}
+
+// TestDBHandler validates a connection string but does NOT persist it
+func TestDBHandler(c *gin.Context) {
+	var req ConnectRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// Validate connection only, do not save
+	switch req.DBType {
+	case "sqlite":
+		dbConn, err := db.OpenSQLite(req.ConnString)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid SQLite connection string"})
+			return
+		}
+		dbConn.Close()
+	case "postgres":
+		if err := validatePostgres(req.ConnString); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid PostgreSQL connection string"})
+			return
+		}
+	case "mysql":
+		if err := validateMySQL(req.ConnString); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid MySQL connection string"})
+			return
+		}
+	case "mongodb":
+		if err := validateMongo(req.ConnString); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid MongoDB connection string"})
+			return
+		}
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported DB type"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Connection successful"})
 }
 
 func ListConnectionsHandler(c *gin.Context) {
@@ -118,6 +159,64 @@ func ListConnectionsHandler(c *gin.Context) {
 	if err := db.DB.Where("user_id = ?", userID).Find(&conns).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list connections"})
 		return
+	}
+
+	// For each connection, try to connect and set isConnected and lastConnected
+	for i := range conns {
+		conn := &conns[i]
+		// Decrypt connection string
+		connStr, err := db.Decrypt(conn.ConnString)
+		if err != nil {
+			conn.IsConnected = false
+			continue
+		}
+		var pingErr error
+		switch conn.DBType {
+		case "sqlite":
+			dbConn, err := db.OpenSQLite(connStr)
+			if err == nil {
+				pingErr = dbConn.Ping()
+				dbConn.Close()
+			} else {
+				pingErr = err
+			}
+		case "postgres":
+			dbConn, err := sql.Open("postgres", connStr)
+			if err == nil {
+				pingErr = dbConn.Ping()
+				dbConn.Close()
+			} else {
+				pingErr = err
+			}
+		case "mysql":
+			dbConn, err := sql.Open("mysql", connStr)
+			if err == nil {
+				pingErr = dbConn.Ping()
+				dbConn.Close()
+			} else {
+				pingErr = err
+			}
+		case "mongodb":
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			client, err := mongo.Connect(ctx, options.Client().ApplyURI(connStr))
+			if err == nil {
+				pingErr = client.Ping(ctx, nil)
+				client.Disconnect(ctx)
+			} else {
+				pingErr = err
+			}
+			cancel()
+		default:
+			pingErr = fmt.Errorf("unsupported db type")
+		}
+		if pingErr == nil {
+			conn.IsConnected = true
+			now := time.Now()
+			conn.LastConnected = &now
+		} else {
+			conn.IsConnected = false
+			conn.LastConnected = nil
+		}
 	}
 	c.JSON(http.StatusOK, conns)
 }

@@ -4,6 +4,7 @@ import (
 	"datawhiz/internal/db"
 	"datawhiz/internal/handlers"
 	"datawhiz/internal/middleware"
+
 	"github.com/gin-contrib/cors"
 
 	"log"
@@ -20,6 +21,7 @@ func main() {
 	}
 
 	db.InitDB("datawhiz.db")
+	db.SetEncryptionKeyFromEnv()
 
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
@@ -28,7 +30,7 @@ func main() {
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		AllowCredentials: true,
 	}))
-	
+
 	r.Use(middleware.SlogLogger())
 	r.Use(middleware.ErrorHandler())
 
@@ -48,6 +50,7 @@ func main() {
 
 		// Database Connection Management endpoints (protected)
 		protected.POST("/db/connect", handlers.ConnectDBHandler)
+		protected.POST("/db/test", handlers.TestDBHandler)
 		protected.GET("/db/list", handlers.ListConnectionsHandler)
 		protected.DELETE("/db/disconnect/:connection_id", handlers.DisconnectDBHandler)
 		protected.GET("/db/schema/:connection_id", handlers.SchemaIntrospectionHandler)

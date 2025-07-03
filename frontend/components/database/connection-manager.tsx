@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useDatabase, getDatabaseColor } from "./database-provider"
+import { useEffect, useState } from "react"
+import { getDatabaseColor } from "./database-provider"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -11,58 +11,69 @@ import { Database, Plus, MoreHorizontal, TestTube, Edit, Trash2, Circle, Loader2
 import { useToast } from "@/hooks/use-toast"
 import { ConnectionForm } from "./connection-form"
 
+
+import { useDatabase } from "./database-provider"
+
 export function ConnectionManager() {
-  const { connections, setShowConnectionForm, removeConnection, testConnection } = useDatabase()
+  const { setShowConnectionForm } = useDatabase()
   const { toast } = useToast()
+  const [connections, setConnections] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [testingConnections, setTestingConnections] = useState<Set<string>>(new Set())
 
-  const handleTestConnection = async (connectionId: string) => {
-    const connection = connections.find((c) => c.id === connectionId)
-    if (!connection) return
+  // Fetch connections from backend on mount
+  useEffect(() => {
+    const fetchConnections = async () => {
+      setLoading(true)
+      try {
+        const res = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL + "/api/db/list", {
+          credentials: "include",
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setConnections(data)
+        } else {
+          setConnections([])
+        }
+      } catch (e) {
+        setConnections([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchConnections()
+  }, [])
 
-    setTestingConnections((prev) => new Set(prev).add(connectionId))
-
+  // Disconnect logic: call backend and update UI on success
+  const handleDeleteConnection = async (connectionId: string) => {
     try {
-      const success = await testConnection({
-        name: connection.name,
-        type: connection.type,
-        host: connection.host,
-        port: connection.port,
-        database: connection.database,
-        username: connection.username,
-      })
-
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/db/disconnect/${connectionId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      )
+      if (res.ok) {
+        setConnections((prev) => prev.filter((c) => c.id !== connectionId))
+        toast({
+          title: "Connection removed",
+          description: `Connection has been removed from your connections.`,
+        })
+      } else {
+        toast({
+          title: "Failed to remove connection",
+          description: "Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (e) {
       toast({
-        title: success ? "Connection successful" : "Connection failed",
-        description: success
-          ? `Successfully connected to ${connection.name}`
-          : `Failed to connect to ${connection.name}`,
-        variant: success ? "default" : "destructive",
-      })
-    } catch (error) {
-      toast({
-        title: "Connection test failed",
-        description: "An error occurred while testing the connection",
+        title: "Failed to remove connection",
+        description: "Please try again.",
         variant: "destructive",
       })
-    } finally {
-      setTestingConnections((prev) => {
-        const newSet = new Set(prev)
-        newSet.delete(connectionId)
-        return newSet
-      })
     }
-  }
-
-  const handleDeleteConnection = (connectionId: string) => {
-    const connection = connections.find((c) => c.id === connectionId)
-    if (!connection) return
-
-    removeConnection(connectionId)
-    toast({
-      title: "Connection removed",
-      description: `${connection.name} has been removed from your connections.`,
-    })
   }
 
   return (
@@ -82,7 +93,14 @@ export function ConnectionManager() {
           </Button>
         </div>
 
-        {connections.length === 0 ? (
+        {loading ? (
+          <Card>
+            <CardContent className="text-center py-12">
+              <Loader2 className="h-8 w-8 mx-auto animate-spin mb-4" />
+              <h3 className="text-lg font-medium mb-2">Loading connections...</h3>
+            </CardContent>
+          </Card>
+        ) : connections.length === 0 ? (
           <Card>
             <CardContent className="text-center py-12">
               <Database className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -123,10 +141,17 @@ export function ConnectionManager() {
                       <TableRow key={connection.id}>
                         <TableCell className="font-medium">{connection.name}</TableCell>
                         <TableCell>
-                          <Badge className={getDatabaseColor(connection.type)}>{connection.type.toUpperCase()}</Badge>
+
+                          {connection.db_type ? (
+                            <Badge className={getDatabaseColor(connection.db_type)}>
+                              {connection.db_type.toUpperCase()}
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-gray-200 text-gray-700">Unknown</Badge>
+                          )}
                         </TableCell>
                         <TableCell className="font-mono text-sm">
-                          {connection.type === "sqlite" ? "Local File" : `${connection.host}:${connection.port}`}
+                          {connection.db_type === "sqlite" ? "Local File" : `${connection.host}:${connection.port}`}
                         </TableCell>
                         <TableCell className="font-mono text-sm">{connection.database}</TableCell>
                         <TableCell>
@@ -140,7 +165,9 @@ export function ConnectionManager() {
                           </div>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {connection.lastConnected ? connection.lastConnected.toLocaleDateString() : "Never"}
+                          {connection.lastConnected
+                            ? new Date(connection.lastConnected).toLocaleDateString()
+                            : "Never"}
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>
@@ -150,17 +177,7 @@ export function ConnectionManager() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => handleTestConnection(connection.id)}
-                                disabled={testingConnections.has(connection.id)}
-                              >
-                                {testingConnections.has(connection.id) ? (
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                  <TestTube className="mr-2 h-4 w-4" />
-                                )}
-                                Test Connection
-                              </DropdownMenuItem>
+                              {/* Test Connection button can be implemented if backend supports it */}
                               <DropdownMenuItem>
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit

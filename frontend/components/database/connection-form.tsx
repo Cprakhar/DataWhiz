@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import { useDatabase, type DatabaseType } from "./database-provider"
+import { useAuth } from "@/components/auth/auth-provider"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -60,8 +61,10 @@ const databaseInfo: Record<DatabaseType, { description: string; examples: string
 }
 
 export function ConnectionForm() {
-  const { showConnectionForm, setShowConnectionForm, addConnection, testConnection } = useDatabase()
+  const { showConnectionForm, setShowConnectionForm, connections } = useDatabase()
   const { toast } = useToast()
+  const { user } = useAuth()
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080"
 
   const [formData, setFormData] = useState<ConnectionFormData>({
     name: "",
@@ -93,22 +96,44 @@ export function ConnectionForm() {
   }
 
   const handleTestConnection = async () => {
+    // For SQLite, require a non-empty file path
+    if (formData.type === "sqlite" && !formData.database.trim()) {
+      setTestStatus("error")
+      setTestError("Please provide a valid SQLite database file path.")
+      return
+    }
     setTestStatus("testing")
     setTestError("")
 
     try {
-      const connectionData = {
-        name: formData.name || `${formData.type} Connection`,
-        type: formData.type,
-        host: formData.host,
-        port: formData.port,
-        database: formData.database,
-        username: formData.username,
+      // Build connection string
+      let connString = ""
+      if (formData.type === "sqlite") {
+        connString = formData.database
+      } else if (formData.useConnectionString) {
+        connString = formData.connectionString || ""
+      } else {
+        // Example: postgres://user:pass@host:port/db
+        let proto = formData.type === "postgresql" ? "postgres" : formData.type
+        connString = `${proto}://${formData.username}:${encodeURIComponent(formData.password)}@${formData.host}:${formData.port}/${formData.database}`
+        if (formData.ssl) {
+          connString += "?sslmode=require"
+        }
       }
 
-      const success = await testConnection(connectionData)
-
-      if (success) {
+      const res = await fetch(`${backendUrl}/api/db/test`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          db_type: formData.type,
+          conn_string: connString,
+          name: formData.name,
+        }),
+      })
+      if (res.ok) {
         setTestStatus("success")
         toast({
           title: "Connection successful!",
@@ -116,7 +141,8 @@ export function ConnectionForm() {
         })
       } else {
         setTestStatus("error")
-        setTestError("Failed to connect to database. Please check your credentials and network connectivity.")
+        const err = await res.json()
+        setTestError(err.error || "Failed to connect to database. Please check your credentials and network connectivity.")
       }
     } catch (error) {
       setTestStatus("error")
@@ -126,6 +152,32 @@ export function ConnectionForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // For SQLite, require a non-empty file path
+    if (formData.type === "sqlite" && !formData.database.trim()) {
+      toast({
+        title: "Missing file path",
+        description: "Please provide a valid SQLite database file path before saving.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Build connection string for current form
+    let connString = ""
+    if (formData.type === "sqlite") {
+      connString = formData.database.trim()
+    } else if (formData.useConnectionString) {
+      connString = formData.connectionString?.trim() || ""
+    } else {
+      let proto = formData.type === "postgresql" ? "postgres" : formData.type
+      connString = `${proto}://${formData.username}:${encodeURIComponent(formData.password)}@${formData.host}:${formData.port}/${formData.database}`
+      if (formData.ssl) {
+        connString += "?sslmode=require"
+      }
+    }
+
+    // Duplicate check is now handled by the backend
 
     if (testStatus !== "success") {
       toast({
@@ -139,38 +191,55 @@ export function ConnectionForm() {
     setIsSubmitting(true)
 
     try {
-      const connectionData = {
-        name: formData.name,
-        type: formData.type,
-        host: formData.host,
-        port: formData.port,
-        database: formData.database,
-        username: formData.username,
+      const res = await fetch(`${backendUrl}/api/db/connect`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          db_type: formData.type,
+          conn_string: connString,
+          name: formData.name,
+        }),
+      })
+      if (res.ok) {
+        toast({
+          title: "Connection added!",
+          description: `${formData.name} has been added to your connections.`,
+        })
+        // Reset form
+        setFormData({
+          name: "",
+          type: "postgresql",
+          host: "localhost",
+          port: defaultPorts.postgresql,
+          database: "",
+          username: "",
+          password: "",
+          ssl: false,
+          connectionString: "",
+          useConnectionString: false,
+        })
+        setTestStatus("idle")
+        setTestError("")
+        setShowConnectionForm(false)
+      } else {
+        const err = await res.json()
+        if (res.status === 409) {
+          toast({
+            title: "Duplicate connection",
+            description: err.error || "A connection with the same connection string already exists.",
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "Failed to add connection",
+            description: err.error || "Please try again.",
+            variant: "destructive",
+          })
+        }
       }
-
-      addConnection(connectionData)
-
-      toast({
-        title: "Connection added!",
-        description: `${formData.name} has been added to your connections.`,
-      })
-
-      // Reset form
-      setFormData({
-        name: "",
-        type: "postgresql",
-        host: "localhost",
-        port: defaultPorts.postgresql,
-        database: "",
-        username: "",
-        password: "",
-        ssl: false,
-        connectionString: "",
-        useConnectionString: false,
-      })
-      setTestStatus("idle")
-      setTestError("")
-      setShowConnectionForm(false)
     } catch (error) {
       toast({
         title: "Failed to add connection",

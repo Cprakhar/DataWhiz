@@ -14,10 +14,22 @@ A unified database management interface with natural language (LLM) support.
   ...
 ```
 
+
 ## Features
-- Connect and manage multiple databases (PostgreSQL, MongoDB, MySQL, SQLite, etc.)
+
+- **User Authentication**
+  - Secure registration, login, and logout with JWT (httpOnly cookies)
+  - OAuth login with Google/GitHub
+  - User context and session management (frontend & backend)
+
+- **Database Connections**
+  - Add new database connections (PostgreSQL, MongoDB, MySQL, SQLite)
+  - Test connection before saving (no DB entry created on test)
+  - Prevent duplicate connections (backend-enforced)
+  - Delete (remove) saved connections
+  - View connection status (isConnected, lastConnected, etc.)
+
 - Natural language query assistant (Gemini LLM-powered)
-- Secure authentication (JWT, OAuth with Google/GitHub, httpOnly cookies)
 - Query history, saved queries, and user profiles (avatar, name)
 - Schema introspection and ERD
 - Extensible, modern UI (Next.js, Tailwind, shadcn/ui)

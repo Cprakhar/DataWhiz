@@ -35,6 +35,15 @@ func AuthRequired() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			return
 		}
+		// Extract user_id from claims and set in context
+		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+			if userID, ok := claims["user_id"].(float64); ok {
+				c.Set("user_id", uint(userID))
+			}
+			if email, ok := claims["email"].(string); ok {
+				c.Set("email", email)
+			}
+		}
 		c.Next()
 	}
 }

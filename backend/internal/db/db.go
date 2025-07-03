@@ -25,7 +25,12 @@ var (
 )
 
 func SetEncryptionKeyFromEnv() {
-	encryptionKey = []byte(os.Getenv("CONN_ENCRYPTION_KEY"))
+	key := os.Getenv("CONN_ENCRYPTION_KEY")
+	if len(key) != 16 && len(key) != 24 && len(key) != 32 {
+		print(key)
+		panic("CONN_ENCRYPTION_KEY must be set to 16, 24, or 32 bytes (characters) for AES encryption")
+	}
+	encryptionKey = []byte(key)
 }
 
 func InitDB(dsn string) error {
