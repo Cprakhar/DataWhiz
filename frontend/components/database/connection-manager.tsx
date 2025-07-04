@@ -14,33 +14,45 @@ import { ConnectionForm } from "./connection-form"
 
 import { useDatabase } from "./database-provider"
 
-export function ConnectionManager() {
-  const { setShowConnectionForm } = useDatabase()
-  const { toast } = useToast()
-  const [connections, setConnections] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [testingConnections, setTestingConnections] = useState<Set<string>>(new Set())
+interface Connection {
+  id: string
+  name: string
+  type?: string
+  db_type?: string
+  host?: string
+  port?: number
+  database?: string
+  username?: string
+  isConnected?: boolean
+  lastConnected?: string | Date
+  useConnectionString?: boolean
+}
 
-  // Fetch connections from backend on mount
-  useEffect(() => {
-    const fetchConnections = async () => {
-      setLoading(true)
-      try {
-        const res = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL + "/api/db/list", {
-          credentials: "include",
-        })
-        if (res.ok) {
-          const data = await res.json()
-          setConnections(data)
-        } else {
-          setConnections([])
-        }
-      } catch (e) {
+export function ConnectionManager() {
+  const { setShowConnectionForm, connections, setConnections } = useDatabase()
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(true)
+
+  const fetchConnections = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL + "/api/db/list", {
+        credentials: "include",
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setConnections(data)
+      } else {
         setConnections([])
-      } finally {
-        setLoading(false)
       }
+    } catch (e) {
+      setConnections([])
+    } finally {
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
     fetchConnections()
   }, [])
 
@@ -55,7 +67,7 @@ export function ConnectionManager() {
         }
       )
       if (res.ok) {
-        setConnections((prev) => prev.filter((c) => c.id !== connectionId))
+        await fetchConnections()
         toast({
           title: "Connection removed",
           description: `Connection has been removed from your connections.`,
@@ -75,6 +87,15 @@ export function ConnectionManager() {
       })
     }
   }
+
+  // Listen for successful add connection and refresh list
+  useEffect(() => {
+    const handler = () => {
+      fetchConnections()
+    }
+    window.addEventListener("datawhiz-connection-added", handler)
+    return () => window.removeEventListener("datawhiz-connection-added", handler)
+  }, [])
 
   return (
     <div className="w-full max-w-none">
@@ -127,7 +148,7 @@ export function ConnectionManager() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
+                      <TableHead>Connection Name</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Host</TableHead>
                       <TableHead>Database</TableHead>
@@ -137,21 +158,25 @@ export function ConnectionManager() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {connections.map((connection) => (
+                    {connections.map((connection: Connection) => (
                       <TableRow key={connection.id}>
                         <TableCell className="font-medium">{connection.name}</TableCell>
                         <TableCell>
 
-                          {connection.db_type ? (
-                            <Badge className={getDatabaseColor(connection.db_type)}>
-                              {connection.db_type.toUpperCase()}
+                          {connection.db_type || connection.type ? (
+                            <Badge className={getDatabaseColor((connection.db_type || connection.type) as any)}>
+                              {(connection.db_type || connection.type)?.toUpperCase()}
                             </Badge>
                           ) : (
                             <Badge className="bg-gray-200 text-gray-700">Unknown</Badge>
                           )}
                         </TableCell>
                         <TableCell className="font-mono text-sm">
-                          {connection.db_type === "sqlite" ? "Local File" : `${connection.host}:${connection.port}`}
+                          {(connection.db_type || connection.type) === "sqlite"
+                            ? "Local File"
+                            : (connection.useConnectionString || !connection.host || !connection.port)
+                              ? "Cloud DB"
+                              : `${connection.host}:${connection.port}`}
                         </TableCell>
                         <TableCell className="font-mono text-sm">{connection.database}</TableCell>
                         <TableCell>

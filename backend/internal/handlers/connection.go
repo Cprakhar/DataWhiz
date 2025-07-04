@@ -9,11 +9,11 @@ import (
 
 	"datawhiz/internal/db"
 	"datawhiz/internal/models"
-	cache "datawhiz/internal/utils"
+	utils "datawhiz/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -24,7 +24,7 @@ type ConnectRequest struct {
 	Name       string `json:"name"`
 }
 
-var schemaCache = cache.NewCache()
+var schemaCache = utils.NewCache()
 
 // getUserIDFromContext now simply reads the user_id set by the AuthRequired middleware
 func getUserIDFromContext(c *gin.Context) (uint, bool) {
@@ -59,7 +59,7 @@ func ConnectDBHandler(c *gin.Context) {
 			return
 		}
 		dbConn.Close()
-	case "postgres":
+	case "postgresql":
 		if err := validatePostgres(req.ConnString); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid PostgreSQL connection string"})
 			return
@@ -85,16 +85,48 @@ func ConnectDBHandler(c *gin.Context) {
 		return
 	}
 
-	// Check for duplicate (same user, same db_type, same decrypted conn_string)
+	// Check for duplicate (same user, same db_type, same decrypted conn_string),
+	// and treat postgresql:// and postgres:// as equivalent for PostgreSQL
 	var existing []models.Connection
 	if err := db.DB.Where("user_id = ? AND db_type = ?", userID, req.DBType).Find(&existing).Error; err == nil {
+		// Normalize the input connection string for PostgreSQL
+		normalizedInput := req.ConnString
+		if req.DBType == "postgresql" {
+			if len(req.ConnString) >= 13 && req.ConnString[:13] == "postgresql://" {
+				normalizedInput = "postgres://" + req.ConnString[13:]
+			}
+		}
 		for _, ex := range existing {
 			dec, derr := db.Decrypt(ex.ConnString)
-			if derr == nil && dec == req.ConnString {
+			if derr != nil {
+				continue
+			}
+			normalizedExisting := dec
+			if req.DBType == "postgresql" {
+				if len(dec) >= 13 && dec[:13] == "postgresql://" {
+					normalizedExisting = "postgres://" + dec[13:]
+				}
+			}
+			if normalizedExisting == normalizedInput {
 				c.JSON(http.StatusConflict, gin.H{"error": "Duplicate connection: this connection string already exists for this user and database type."})
 				return
 			}
 		}
+	}
+
+	// Extract host, port, and database name for supported DB types
+	var host string
+	var port int
+	var database string
+	switch req.DBType {
+	case "postgresql":
+		host, port, database = utils.ExtractPostgresInfo(req.ConnString)
+	case "mysql":
+		host, port, database = utils.ExtractMySQLInfo(req.ConnString)
+	case "sqlite":
+		database = utils.ExtractSQLiteFile(req.ConnString)
+	case "mongodb":
+		database = utils.ExtractMongoDBName(req.ConnString)
 	}
 
 	conn := models.Connection{
@@ -103,6 +135,9 @@ func ConnectDBHandler(c *gin.Context) {
 		ConnString: encryptedConn,
 		CreatedAt:  time.Now(),
 		Name:       req.Name,
+		Host:       host,
+		Port:       port,
+		Database:   database,
 	}
 	if err := db.DB.Create(&conn).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save connection"})
@@ -110,6 +145,8 @@ func ConnectDBHandler(c *gin.Context) {
 	}
 	c.JSON(http.StatusCreated, gin.H{"connection_id": conn.ID})
 }
+
+// --- DB info extraction helpers are now in internal/utils/dbinfo.go (package cache) ---
 
 // TestDBHandler validates a connection string but does NOT persist it
 func TestDBHandler(c *gin.Context) {
@@ -127,7 +164,7 @@ func TestDBHandler(c *gin.Context) {
 			return
 		}
 		dbConn.Close()
-	case "postgres":
+	case "postgresql":
 		if err := validatePostgres(req.ConnString); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid PostgreSQL connection string"})
 			return
@@ -180,8 +217,12 @@ func ListConnectionsHandler(c *gin.Context) {
 			} else {
 				pingErr = err
 			}
-		case "postgres":
-			dbConn, err := sql.Open("postgres", connStr)
+		case "postgresql":
+			normalized := connStr
+			if len(connStr) >= 13 && connStr[:13] == "postgresql://" {
+				normalized = "postgres://" + connStr[13:]
+			}
+			dbConn, err := sql.Open("pgx", normalized)
 			if err == nil {
 				pingErr = dbConn.Ping()
 				dbConn.Close()
@@ -299,8 +340,12 @@ func SchemaIntrospectionHandler(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"tables": tables})
 		return
 	}
-	if conn.DBType == "postgres" {
-		dbConn, err := sql.Open("postgres", connStr)
+	if conn.DBType == "postgresql" {
+		normalized := connStr
+		if len(connStr) >= 13 && connStr[:13] == "postgresql://" {
+			normalized = "postgres://" + connStr[13:]
+		}
+		dbConn, err := sql.Open("pgx", normalized)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to DB"})
 			return
@@ -405,12 +450,20 @@ func SchemaIntrospectionHandler(c *gin.Context) {
 }
 
 func validatePostgres(connStr string) error {
-	dbConn, err := sql.Open("postgres", connStr)
+	normalized := connStr
+	if len(connStr) >= 13 && connStr[:13] == "postgresql://" {
+		normalized = "postgres://" + connStr[13:]
+	}
+	dbConn, err := sql.Open("pgx", normalized)
 	if err != nil {
 		return err
 	}
 	defer dbConn.Close()
-	return dbConn.Ping()
+	err = dbConn.Ping()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func validateMySQL(connStr string) error {

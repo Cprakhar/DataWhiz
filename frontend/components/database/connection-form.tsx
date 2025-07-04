@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useDatabase, type DatabaseType } from "./database-provider"
 import { useAuth } from "@/components/auth/auth-provider"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -79,6 +77,15 @@ export function ConnectionForm() {
     useConnectionString: false,
   })
 
+  // Always force SSL off if host is localhost or 127.0.0.1
+  useEffect(() => {
+    if (formData.type !== "sqlite" && (formData.host === "localhost" || formData.host === "127.0.0.1")) {
+      if (formData.ssl) {
+        setFormData((prev) => ({ ...prev, ssl: false }))
+      }
+    }
+  }, [formData.host, formData.type])
+
   const [testStatus, setTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle")
   const [testError, setTestError] = useState<string>("")
   const [showPassword, setShowPassword] = useState(false)
@@ -93,6 +100,14 @@ export function ConnectionForm() {
     }))
     setTestStatus("idle")
     setTestError("")
+  }
+
+  // When user switches tabs, update useConnectionString accordingly
+  const handleTabChange = (tab: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      useConnectionString: tab === "string"
+    }))
   }
 
   const handleTestConnection = async () => {
@@ -111,13 +126,27 @@ export function ConnectionForm() {
       if (formData.type === "sqlite") {
         connString = formData.database
       } else if (formData.useConnectionString) {
-        connString = formData.connectionString || ""
+        connString = formData.connectionString?.trim() || ""
+        // For PostgreSQL, always add sslmode=require for cloud DBs if not present
+        if (
+          formData.type === "postgresql" &&
+          formData.host !== "localhost" &&
+          formData.host !== "127.0.0.1" &&
+          !/sslmode=/.test(connString)
+        ) {
+          connString += connString.includes("?") ? "&sslmode=require" : "?sslmode=require"
+        }
       } else {
-        // Example: postgres://user:pass@host:port/db
-        let proto = formData.type === "postgresql" ? "postgres" : formData.type
-        connString = `${proto}://${formData.username}:${encodeURIComponent(formData.password)}@${formData.host}:${formData.port}/${formData.database}`
-        if (formData.ssl) {
-          connString += "?sslmode=require"
+        if (formData.type === "mysql") {
+          // MySQL Go driver expects: user:password@tcp(host:port)/database
+          connString = `${formData.username}:${encodeURIComponent(formData.password)}@tcp(${formData.host}:${formData.port})/${formData.database}`
+        } else {
+          // Example: postgres://user:pass@host:port/db
+          let proto = formData.type === "postgresql" ? "postgres" : formData.type
+          connString = `${proto}://${formData.username}:${encodeURIComponent(formData.password)}@${formData.host}:${formData.port}/${formData.database}`
+          if (formData.ssl) {
+            connString += "?sslmode=require"
+          }
         }
       }
 
@@ -169,11 +198,25 @@ export function ConnectionForm() {
       connString = formData.database.trim()
     } else if (formData.useConnectionString) {
       connString = formData.connectionString?.trim() || ""
+      // For PostgreSQL, always add sslmode=require for cloud DBs if not present
+      if (
+        formData.type === "postgresql" &&
+        formData.host !== "localhost" &&
+        formData.host !== "127.0.0.1" &&
+        !/sslmode=/.test(connString)
+      ) {
+        connString += connString.includes("?") ? "&sslmode=require" : "?sslmode=require"
+      }
     } else {
-      let proto = formData.type === "postgresql" ? "postgres" : formData.type
-      connString = `${proto}://${formData.username}:${encodeURIComponent(formData.password)}@${formData.host}:${formData.port}/${formData.database}`
-      if (formData.ssl) {
-        connString += "?sslmode=require"
+      if (formData.type === "mysql") {
+        // MySQL Go driver expects: user:password@tcp(host:port)/database
+        connString = `${formData.username}:${encodeURIComponent(formData.password)}@tcp(${formData.host}:${formData.port})/${formData.database}`
+      } else {
+        let proto = formData.type === "postgresql" ? "postgres" : formData.type
+        connString = `${proto}://${formData.username}:${encodeURIComponent(formData.password)}@${formData.host}:${formData.port}/${formData.database}`
+        if (formData.ssl) {
+          connString += "?sslmode=require"
+        }
       }
     }
 
@@ -208,6 +251,8 @@ export function ConnectionForm() {
           title: "Connection added!",
           description: `${formData.name} has been added to your connections.`,
         })
+        // Notify listeners to refresh connection list
+        window.dispatchEvent(new Event("datawhiz-connection-added"))
         // Reset form
         setFormData({
           name: "",
@@ -252,34 +297,34 @@ export function ConnectionForm() {
   }
 
   const renderConnectionStringTab = () => (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="connectionString">Connection String</Label>
-        <Textarea
-          id="connectionString"
-          placeholder={databaseInfo[formData.type].examples[0]}
-          value={formData.connectionString}
-          onChange={(e) => setFormData((prev) => ({ ...prev, connectionString: e.target.value }))}
-          className="font-mono text-sm"
-          rows={3}
-        />
-        <p className="text-xs text-muted-foreground">Enter the full connection string for your database</p>
-      </div>
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="connectionString">Connection String</Label>
+          <Textarea
+            id="connectionString"
+            placeholder={databaseInfo[formData.type].examples[0]}
+            value={formData.connectionString}
+            onChange={(e) => setFormData((prev) => ({ ...prev, connectionString: e.target.value }))}
+            className="font-mono text-sm"
+            rows={3}
+          />
+          <p className="text-xs text-muted-foreground">Enter the full connection string for your database</p>
+        </div>
 
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertDescription>
-          <strong>Examples for {formData.type.toUpperCase()}:</strong>
-          <ul className="mt-2 space-y-1">
-            {databaseInfo[formData.type].examples.map((example, index) => (
-              <li key={index} className="font-mono text-xs bg-muted px-2 py-1 rounded">
-                {example}
-              </li>
-            ))}
-          </ul>
-        </AlertDescription>
-      </Alert>
-    </div>
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Examples for {formData.type.toUpperCase()}:</strong>
+            <ul className="mt-2 space-y-1">
+              {databaseInfo[formData.type].examples.map((example, index) => (
+                <li key={index} className="font-mono text-xs bg-muted px-2 py-1 rounded">
+                  {example}
+                </li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      </div>
   )
 
   const renderManualTab = () => (
@@ -366,6 +411,7 @@ export function ConnectionForm() {
               id="ssl"
               checked={formData.ssl}
               onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, ssl: checked }))}
+              disabled={formData.host === "localhost" || formData.host === "127.0.0.1"}
             />
             <Label htmlFor="ssl" className="flex items-center gap-2">
               <Globe className="h-3 w-3" />
@@ -458,7 +504,12 @@ export function ConnectionForm() {
             <h3 className="text-lg font-medium">Connection Configuration</h3>
 
             {formData.type !== "sqlite" && (
-              <Tabs defaultValue="manual" className="w-full">
+              <Tabs
+                defaultValue={formData.useConnectionString ? "string" : "manual"}
+                value={formData.useConnectionString ? "string" : "manual"}
+                onValueChange={handleTabChange}
+                className="w-full"
+              >
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="manual">Manual Configuration</TabsTrigger>
                   <TabsTrigger value="string">Connection String</TabsTrigger>
@@ -485,7 +536,18 @@ export function ConnectionForm() {
                 type="button"
                 variant="outline"
                 onClick={handleTestConnection}
-                disabled={testStatus === "testing" || !formData.database}
+                disabled={
+                  testStatus === "testing" ||
+                  (
+                    formData.type === "sqlite"
+                      ? !formData.database?.trim()
+                      : (
+                        formData.useConnectionString
+                          ? !formData.connectionString?.trim()
+                          : !formData.database?.trim()
+                        )
+                  )
+                }
                 className="flex items-center gap-2 bg-transparent"
               >
                 {testStatus === "testing" ? (

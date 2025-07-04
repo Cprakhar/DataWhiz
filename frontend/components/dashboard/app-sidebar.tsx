@@ -13,13 +13,11 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar"
-import { useDatabase, getDatabaseColor } from "@/components/database/database-provider"
+import { useDatabase, getDatabaseImage } from "@/components/database/database-provider"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Database, Plus, Bot, History, Settings, Home, Circle, TableIcon } from "lucide-react"
+import { Database, Plus, Bot, History, Settings, Home, TableIcon } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
 
 const navigationItems = [
   {
@@ -102,29 +100,28 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {connections.map((connection) => (
-                <SidebarMenuItem key={connection.id}>
-                  <SidebarMenuButton
-                    onClick={() => setActiveConnection(connection)}
-                    isActive={activeConnection?.id === connection.id}
-                    tooltip={`${connection.name} (${connection.type.toUpperCase()})`}
-                  >
-                    <Circle
-                      className={cn(
-                        "h-2 w-2 fill-current shrink-0",
-                        connection.isConnected ? "text-green-500" : "text-gray-400",
-                      )}
-                    />
-                    <span className="truncate">{connection.name}</span>
-                    <Badge
-                      variant="secondary"
-                      className={cn("text-xs px-1 py-0 ml-auto shrink-0", getDatabaseColor(connection.type))}
+              {connections.map((connection) => {
+                const dbType = connection.db_type
+                const dbImg = getDatabaseImage(dbType)
+                return (
+                  <SidebarMenuItem key={connection.id}>
+                    <SidebarMenuButton
+                      onClick={() => setActiveConnection(connection)}
+                      isActive={activeConnection?.id === connection.id}
+                      tooltip={`${connection.name} (${dbType.toUpperCase()})`}
                     >
-                      {connection.type.charAt(0).toUpperCase()}
-                    </Badge>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                      <span className="truncate mr-auto">{connection.name}</span>
+                      {dbImg && (
+                        <img
+                          src={dbImg}
+                          alt={dbType}
+                          className="ml-2 h-5 w-5"
+                        />
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
