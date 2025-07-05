@@ -54,6 +54,9 @@ func main() {
 		protected.GET("/db/list", handlers.ListConnectionsHandler)
 		protected.DELETE("/db/disconnect/:connection_id", handlers.DisconnectDBHandler)
 		protected.GET("/db/schema/:connection_id", handlers.SchemaIntrospectionHandler)
+		// Table and record endpoints
+		protected.GET("/db/:connection_id/tables", handlers.GetTablesHandler)
+		protected.GET("/db/:connection_id/table/:table_name/records", handlers.GetTableRecordsHandler)
 		protected.POST("/query/execute", handlers.ExecuteQueryHandler)
 		protected.POST("/query/generate", handlers.GenerateQueryHandler)
 		protected.GET("/history/:user_id", handlers.QueryHistoryHandler)

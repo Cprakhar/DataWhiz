@@ -20,7 +20,7 @@ func OpenSQLite(connStr string) (*sql.DB, error) {
 	return sql.Open("sqlite3", connStr)
 }
 
-// GetSQLiteTablesAndColumns returns a list of tables and their columns for a SQLite database
+// GetSQLiteTablesAndColumns returns a list of tables and their full column metadata for a SQLite database
 func GetSQLiteTablesAndColumns(dbConn *sql.DB) ([]map[string]interface{}, error) {
 	tables := []map[string]interface{}{}
 	rows, err := dbConn.Query("SELECT name FROM sqlite_master WHERE type='table'")
@@ -33,20 +33,11 @@ func GetSQLiteTablesAndColumns(dbConn *sql.DB) ([]map[string]interface{}, error)
 		if err := rows.Scan(&tableName); err != nil {
 			continue
 		}
-		colRows, err := dbConn.Query("PRAGMA table_info(" + tableName + ")")
+		colMeta, err := GetSQLiteTableMetadata(dbConn, tableName)
 		if err != nil {
 			continue
 		}
-		cols := []string{}
-		for colRows.Next() {
-			var cid int
-			var name, ctype string
-			var notnull, pk int
-			var dfltValue interface{}
-			colRows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk)
-			cols = append(cols, name)
-		}
-		tables = append(tables, map[string]interface{}{"name": tableName, "columns": cols})
+		tables = append(tables, map[string]interface{}{"name": tableName, "columns": colMeta})
 	}
 	return tables, nil
 }
@@ -77,4 +68,90 @@ func ExtractSQLiteFile(connStr string) string {
 		return fileName[:dot]
 	}
 	return fileName
+}
+
+// GetSQLiteTableMetadata returns column metadata for a given table
+func GetSQLiteTableMetadata(dbConn *sql.DB, tableName string) ([]ColumnMeta, error) {
+	columns := []ColumnMeta{}
+	// PRAGMA table_info returns: cid, name, type, notnull, dflt_value, pk
+	colRows, err := dbConn.Query("PRAGMA table_info(" + tableName + ")")
+	if err != nil {
+		return nil, err
+	}
+	defer colRows.Close()
+
+	// Prepare to collect unique columns
+	uniqueCols := map[string]bool{}
+	// PRAGMA index_list returns all indexes, including unique ones
+	idxRows, err := dbConn.Query("PRAGMA index_list(" + tableName + ")")
+	if err == nil {
+		defer idxRows.Close()
+		for idxRows.Next() {
+			var idxSeq int
+			var idxName string
+			var isUnique int
+			var origin, partial sql.NullString
+			// PRAGMA index_list: seq, name, unique, origin, partial
+			err := idxRows.Scan(&idxSeq, &idxName, &isUnique, &origin, &partial)
+			if err == nil && isUnique == 1 {
+				// For each unique index, get its columns
+				idxInfoRows, err := dbConn.Query("PRAGMA index_info(" + idxName + ")")
+				if err == nil {
+					defer idxInfoRows.Close()
+					for idxInfoRows.Next() {
+						var seqno, cid int
+						var colName string
+						err := idxInfoRows.Scan(&seqno, &cid, &colName)
+						if err == nil {
+							uniqueCols[colName] = true
+						}
+					}
+				}
+			}
+		}
+	}
+
+	for colRows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dfltValue sql.NullString
+		err := colRows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk)
+		if err != nil {
+			return nil, err
+		}
+		col := ColumnMeta{
+			Name:       name,
+			DataType:   ctype,
+			Nullable:   notnull == 0,
+			Default:    dfltValue,
+			PrimaryKey: pk > 0,
+			UniqueKey:  uniqueCols[name],
+		}
+		columns = append(columns, col)
+	}
+
+	// Foreign keys: PRAGMA foreign_key_list(tableName)
+	fkRows, err := dbConn.Query("PRAGMA foreign_key_list(" + tableName + ")")
+	if err == nil {
+		defer fkRows.Close()
+		fkCols := map[string]bool{}
+		for fkRows.Next() {
+			var (
+				id, seq                                    int
+				table, from, to, onUpdate, onDelete, match string
+			)
+			err := fkRows.Scan(&id, &seq, &table, &from, &to, &onUpdate, &onDelete, &match)
+			if err == nil {
+				fkCols[from] = true
+			}
+		}
+		for i := range columns {
+			if fkCols[columns[i].Name] {
+				columns[i].ForeignKey = true
+			}
+		}
+	}
+
+	return columns, nil
 }

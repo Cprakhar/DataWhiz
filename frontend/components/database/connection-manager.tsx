@@ -33,28 +33,7 @@ export function ConnectionManager() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
 
-  const fetchConnections = async () => {
-    setLoading(true)
-    try {
-      const res = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL + "/api/db/list", {
-        credentials: "include",
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setConnections(data)
-      } else {
-        setConnections([])
-      }
-    } catch (e) {
-      setConnections([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchConnections()
-  }, [])
+  // Connections are now fetched globally in DatabaseProvider
 
   // Disconnect logic: call backend and update UI on success
   const handleDeleteConnection = async (connectionId: string) => {
@@ -67,7 +46,7 @@ export function ConnectionManager() {
         }
       )
       if (res.ok) {
-        await fetchConnections()
+        // Optionally, you may want to refetch or update context here if needed
         toast({
           title: "Connection removed",
           description: `Connection has been removed from your connections.`,
@@ -89,13 +68,7 @@ export function ConnectionManager() {
   }
 
   // Listen for successful add connection and refresh list
-  useEffect(() => {
-    const handler = () => {
-      fetchConnections()
-    }
-    window.addEventListener("datawhiz-connection-added", handler)
-    return () => window.removeEventListener("datawhiz-connection-added", handler)
-  }, [])
+  // No need to listen for connection-added event to refetch, context is always up-to-date
 
   return (
     <div className="w-full max-w-none">

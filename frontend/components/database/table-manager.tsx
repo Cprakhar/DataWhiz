@@ -30,6 +30,8 @@ import {
   Search,
   RefreshCw,
   Check,
+  Key,
+  Link as LinkIcon,
   X,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
@@ -42,8 +44,9 @@ interface TableColumn {
   type: string
   nullable: boolean
   primaryKey: boolean
-  unique: boolean
-  defaultValue?: string
+  unique?: boolean
+  defaultValue?: string | null
+  foreignKey?: boolean
 }
 
 interface TableRecord {
@@ -65,12 +68,11 @@ interface EditingCell {
   originalValue: any
 }
 
-// (Removed duplicate imports)
-
 
 // ...existing code...
 
 export function TableManager() {
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
   const { activeConnection } = useDatabase()
   const { toast } = useToast()
   const [tables, setTables] = useState<DatabaseTable[]>([])
@@ -85,24 +87,58 @@ export function TableManager() {
     const fetchTables = async () => {
       try {
         // Backend endpoint: /api/db/:connection_id/tables
-        const res = await fetch(`/api/db/${activeConnection.id}/tables`)
+        const res = await fetch(`${backendUrl}/api/db/${activeConnection.id}/tables`, 
+          { credentials: "include" }
+        )
         if (!res.ok) throw new Error((await res.json()).error || 'Failed to fetch tables')
         const data = await res.json()
         // Response: { tables: [{ name, columns: [...] } ...] }
-        const backendTables = data.tables.map((t: any) => ({
+        let backendTables = data.tables.map((t: any) => ({
           name: t.name,
           type: t.type || "table", // fallback
           rowCount: t.rowCount || 0,
           columns: (t.columns || []).map((col: any) => ({
             name: col.name || col,
-            type: col.type || "TEXT",
-            nullable: col.nullable ?? true,
-            primaryKey: col.primaryKey ?? false,
-            unique: col.unique ?? false,
-            defaultValue: col.defaultValue,
+            type: col.type || col.data_type || "TEXT",
+            nullable: col.nullable,
+            primaryKey: col.primaryKey ?? col.primary_key ?? false,
+            unique: col.uniqueKey ?? col.unique_key ?? false,
+            defaultValue: col.defaultValue ?? col.default ?? (col.Default && typeof col.Default === 'object' ? (col.Default.Valid ? col.Default.String : null) : col.Default),
+            foreignKey: col.foreignKey ?? col.foreign_key ?? false,
           })),
-          records: [], // will be fetched on table select
+          records: [], // will be fetched below
         }))
+
+        // Pre-fetch records for each table
+        backendTables = await Promise.all(
+          backendTables.map(async (table: DatabaseTable) => {
+            try {
+              const recRes = await fetch(`${backendUrl}/api/db/${activeConnection.id}/table/${encodeURIComponent(table.name)}/records`, { credentials: "include" })
+              if (!recRes.ok) throw new Error()
+              const recData = await recRes.json()
+              let columns = table.columns
+              // If columns are missing or empty, just use keys from first record as column names
+              if ((!columns || columns.length === 0) && recData.records && recData.records.length > 0) {
+                // Fallback: Only use this if backend does NOT provide columns metadata (legacy/edge case)
+                // TODO: Remove this fallback once backend always provides full metadata
+                columns = Object.keys(recData.records[0]).map((col) => ({
+                  name: col,
+                  type: "TEXT",
+                  nullable: true,
+                  primaryKey: false,
+                  unique: false,
+                  defaultValue: null,
+                  foreignKey: false,
+                }));
+                // END FALLBACK
+              }
+              const records = recData.records || [];
+              return { ...table, columns, records, rowCount: records.length }
+            } catch {
+              return table
+            }
+          })
+        )
         setTables(backendTables)
         setSelectedTable(backendTables[0] || null)
       } catch (err: any) {
@@ -120,11 +156,35 @@ export function TableManager() {
     const fetchRecords = async () => {
       try {
         // Backend endpoint: /api/db/:connection_id/table/:table_name/records
-        const res = await fetch(`/api/db/${activeConnection.id}/table/${encodeURIComponent(selectedTable.name)}/records`)
+        const res = await fetch(`${backendUrl}/api/db/${activeConnection.id}/table/${encodeURIComponent(selectedTable.name)}/records`, { credentials: "include" })
         if (!res.ok) throw new Error((await res.json()).error || 'Failed to fetch records')
         const data = await res.json()
         // Response: { records: [...] }
-        setTables((prev) => prev.map((t) => t.name === selectedTable.name ? { ...t, records: data.records || [] } : t))
+        setTables((prev) => {
+          const updated = prev.map((t) => {
+            if (t.name !== selectedTable.name) return t
+            let columns = t.columns
+            // If columns are missing or empty, just use keys from first record as column names
+            if ((!columns || columns.length === 0) && data.records && data.records.length > 0) {
+              columns = Object.keys(data.records[0]).map((col) => ({
+                name: col,
+                type: "TEXT",
+                nullable: true,
+                primaryKey: false,
+                unique: false,
+                defaultValue: null,
+                foreignKey: false,
+              }));
+              // TODO: Ideally, this fallback should not be needed if backend always provides metadata
+              // This fallback is only for legacy/edge cases where backend does not return columns
+            }
+            return { ...t, columns, records: data.records || [] }
+          })
+          // Also update selectedTable reference to the new object
+          const newSelected = updated.find(t => t.name === selectedTable.name) || null
+          setSelectedTable(newSelected)
+          return updated
+        })
       } catch (err: any) {
         toast({ title: "Error", description: err?.message || "Failed to fetch records", variant: "destructive" })
       }
@@ -171,6 +231,24 @@ export function TableManager() {
 
   const saveEdit = () => {
     if (!editingCell || !selectedTable) return
+
+    // Check for unique constraint violation
+    const column = selectedTable.columns.find(col => col.name === editingCell.columnName)
+    if (column?.unique) {
+      const newValue = editingCell.value
+      // Check if any other record has the same value for this column
+      const duplicate = selectedTable.records.some(record =>
+        record.id !== editingCell.recordId && record[editingCell.columnName] === newValue
+      )
+      if (duplicate) {
+        toast({
+          title: "Unique constraint violation",
+          description: `Another record already has this value for unique column '${editingCell.columnName}'.`,
+          variant: "destructive",
+        })
+        return
+      }
+    }
 
     const updatedRecords = selectedTable.records.map((record) => {
       if (record.id === editingCell.recordId) {
@@ -221,31 +299,52 @@ export function TableManager() {
     return "text"
   }
 
-  // Bulk operations handlers
-  const handleBulkDelete = (records: TableRecord[]) => {
-    if (!selectedTable) return
 
-    const recordIds = records.map((r) => r.id)
-    const updatedRecords = selectedTable.records.filter((record) => !recordIds.includes(record.id))
-    const updatedTable = { ...selectedTable, records: updatedRecords, rowCount: updatedRecords.length }
-
-    setTables(tables.map((t) => (t.name === selectedTable.name ? updatedTable : t)))
-    setSelectedTable(updatedTable)
-    setSelectedRecords([])
+  // --- Refactored: Use primary key(s) for record identification ---
+  function getRecordKey(record: TableRecord, columns: TableColumn[]): string {
+    const pkCols = columns.filter(col => col.primaryKey)
+    if (pkCols.length === 0) return JSON.stringify(record)
+    return pkCols.map(col => record[col.name]).join("__")
   }
 
-  const handleBulkUpdate = (records: TableRecord[], updates: Record<string, any>) => {
+  // --- Refactored: Bulk Delete with PK support ---
+  const handleBulkDelete = async (records: TableRecord[]) => {
     if (!selectedTable) return
-
-    const recordIds = records.map((r) => r.id)
-    const updatedRecords = selectedTable.records.map((record) =>
-      recordIds.includes(record.id) ? { ...record, ...updates } : record,
+    const pkCols = selectedTable.columns.filter(col => col.primaryKey)
+    if (pkCols.length === 0) {
+      toast({ title: "Error", description: "No primary key defined for this table.", variant: "destructive" })
+      return
+    }
+    // Optionally: Call backend for delete, here we update local state only
+    const recordKeys = records.map(r => getRecordKey(r, selectedTable.columns))
+    const updatedRecords = selectedTable.records.filter(
+      record => !recordKeys.includes(getRecordKey(record, selectedTable.columns))
     )
-    const updatedTable = { ...selectedTable, records: updatedRecords }
-
+    const updatedTable = { ...selectedTable, records: updatedRecords, rowCount: updatedRecords.length }
     setTables(tables.map((t) => (t.name === selectedTable.name ? updatedTable : t)))
     setSelectedTable(updatedTable)
     setSelectedRecords([])
+    toast({ title: "Success", description: "Records deleted." })
+  }
+
+  // --- Refactored: Bulk Update with PK support ---
+  const handleBulkUpdate = async (records: TableRecord[], updates: Record<string, any>) => {
+    if (!selectedTable) return
+    const pkCols = selectedTable.columns.filter(col => col.primaryKey)
+    if (pkCols.length === 0) {
+      toast({ title: "Error", description: "No primary key defined for this table.", variant: "destructive" })
+      return
+    }
+    // Optionally: Call backend for update, here we update local state only
+    const recordKeys = records.map(r => getRecordKey(r, selectedTable.columns))
+    const updatedRecords = selectedTable.records.map(record =>
+      recordKeys.includes(getRecordKey(record, selectedTable.columns)) ? { ...record, ...updates } : record
+    )
+    const updatedTable = { ...selectedTable, records: updatedRecords }
+    setTables(tables.map((t) => (t.name === selectedTable.name ? updatedTable : t)))
+    setSelectedTable(updatedTable)
+    setSelectedRecords([])
+    toast({ title: "Success", description: "Records updated." })
   }
 
   const handleImport = (data: any[]) => {
@@ -568,21 +667,30 @@ export function TableManager() {
     toast({ title: "Success", description: `Table "${tableName}" deleted successfully` })
   }
 
+  // --- Refactored: Delete Record with PK support ---
   const handleDeleteRecord = (recordId: any) => {
     if (!selectedTable) return
-
-    const updatedRecords = selectedTable.records.filter((record) => record.id !== recordId)
+    const pkCols = selectedTable.columns.filter(col => col.primaryKey)
+    if (pkCols.length === 0) {
+      toast({ title: "Error", description: "No primary key defined for this table.", variant: "destructive" })
+      return
+    }
+    const updatedRecords = selectedTable.records.filter(
+      record => getRecordKey(record, selectedTable.columns) !== getRecordKey({ ...record, id: recordId }, selectedTable.columns)
+    )
     const updatedTable = { ...selectedTable, records: updatedRecords, rowCount: updatedRecords.length }
     setTables(tables.map((t) => (t.name === selectedTable.name ? updatedTable : t)))
     setSelectedTable(updatedTable)
     toast({ title: "Success", description: "Record deleted successfully" })
   }
 
+  // --- Refactored: Selection with PK support ---
   const toggleRecordSelection = (record: TableRecord) => {
     setSelectedRecords((prev) => {
-      const isSelected = prev.some((r) => r.id === record.id)
+      const key = getRecordKey(record, selectedTable?.columns || [])
+      const isSelected = prev.some((r) => getRecordKey(r, selectedTable?.columns || []) === key)
       if (isSelected) {
-        return prev.filter((r) => r.id !== record.id)
+        return prev.filter((r) => getRecordKey(r, selectedTable?.columns || []) !== key)
       } else {
         return [...prev, record]
       }
@@ -590,10 +698,15 @@ export function TableManager() {
   }
 
   const toggleAllRecords = () => {
+    if (!selectedTable) return
+    const allKeys = paginatedRecords.map(r => getRecordKey(r, selectedTable.columns))
+    const selectedKeys = selectedRecords.map(r => getRecordKey(r, selectedTable.columns))
     if (selectedRecords.length === paginatedRecords.length) {
       setSelectedRecords([])
     } else {
-      setSelectedRecords([...paginatedRecords])
+      setSelectedRecords([
+        ...paginatedRecords.filter(r => !selectedKeys.includes(getRecordKey(r, selectedTable.columns)))
+      ])
     }
   }
 
@@ -604,6 +717,26 @@ export function TableManager() {
 
   const paginatedRecords = filteredRecords.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage)
   const totalPages = Math.ceil(filteredRecords.length / recordsPerPage)
+
+  // --- Refactored: Add loading state for records ---
+  const [loadingRecords, setLoadingRecords] = useState(false)
+
+  // Refetch records for selected table (refresh button)
+  const refetchRecords = async () => {
+    if (!activeConnection || !selectedTable) return
+    setLoadingRecords(true)
+    try {
+      const res = await fetch(`/api/db/${activeConnection.id}/table/${encodeURIComponent(selectedTable.name)}/records`, { credentials: "include" })
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed to fetch records')
+      const data = await res.json()
+      setTables((prev) => prev.map((t) => t.name === selectedTable.name ? { ...t, records: data.records || [] } : t))
+      toast({ title: "Success", description: "Records refreshed." })
+    } catch (err: any) {
+      toast({ title: "Error", description: err?.message || "Failed to fetch records", variant: "destructive" })
+    } finally {
+      setLoadingRecords(false)
+    }
+  }
 
   if (!activeConnection) {
     return (
@@ -719,9 +852,9 @@ export function TableManager() {
                           onImport={handleImport}
                           onExport={handleExport}
                         />
-                        <Button variant="outline" size="sm">
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Refresh
+                        <Button variant="outline" size="sm" onClick={refetchRecords} disabled={loadingRecords}>
+                          <RefreshCw className={cn("h-4 w-4 mr-2", loadingRecords && "animate-spin")} />
+                          {loadingRecords ? "Refreshing..." : "Refresh"}
                         </Button>
                         <Button onClick={() => setShowCreateRecord(true)} size="sm">
                           <Plus className="h-4 w-4 mr-2" />
@@ -759,7 +892,7 @@ export function TableManager() {
 
                       <TabsContent value="data" className="space-y-4">
                         <div className="rounded-md border">
-                          <Table>
+                          <Table style={{ tableLayout: 'auto', width: '100%' }}>
                             <TableHeader>
                               <TableRow>
                                 <TableHead className="w-[50px]">
@@ -770,15 +903,16 @@ export function TableManager() {
                                     onCheckedChange={toggleAllRecords}
                                   />
                                 </TableHead>
-                                {selectedTable.columns.map((column) => (
-                                  <TableHead key={column.name} className="font-medium">
+                                {selectedTable.columns.map((column, colIdx) => (
+                                  <TableHead key={`${column.name}-${colIdx}`} className="font-medium">
                                     <div className="flex items-center gap-2">
-                                      {column.name}
                                       {column.primaryKey && (
-                                        <Badge variant="outline" className="text-xs">
-                                          PK
-                                        </Badge>
+                                        <Key className="h-4 w-4 text-yellow-600" />
                                       )}
+                                      {column.foreignKey && !column.primaryKey && (
+                                        <LinkIcon className="h-4 w-4 text-blue-600" />
+                                      )}
+                                      {column.name}
                                       {column.unique && (
                                         <Badge variant="outline" className="text-xs">
                                           UQ
@@ -791,110 +925,121 @@ export function TableManager() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {paginatedRecords.map((record, index) => (
-                                <TableRow key={record.id || index}>
-                                  <TableCell>
-                                    <Checkbox
-                                      checked={selectedRecords.some((r) => r.id === record.id)}
-                                      onCheckedChange={() => toggleRecordSelection(record)}
-                                    />
-                                  </TableCell>
-                                  {selectedTable.columns.map((column) => (
-                                    <TableCell
-                                      key={column.name}
-                                      className={cn(
-                                        "cursor-pointer hover:bg-muted/50 transition-colors",
-                                        editingCell?.recordId === record.id &&
-                                          editingCell?.columnName === column.name &&
-                                          "bg-muted",
-                                        column.primaryKey && "opacity-60",
-                                      )}
-                                      onDoubleClick={() => startEditing(record.id, column.name, record[column.name])}
-                                      title={
-                                        column.primaryKey
-                                          ? "Double-click to edit (Primary keys cannot be edited)"
-                                          : "Double-click to edit"
-                                      }
-                                    >
-                                      {editingCell?.recordId === record.id &&
-                                      editingCell?.columnName === column.name ? (
-                                        <div className="flex items-center gap-2">
-                                          {column.type === "BOOLEAN" ? (
-                                            <Switch
-                                              checked={editingCell.value}
-                                              onCheckedChange={(checked) =>
-                                                setEditingCell({ ...editingCell, value: checked })
-                                              }
-                                              onKeyDown={handleKeyDown}
-                                            />
-                                          ) : (
-                                            <Input
-                                              ref={editInputRef}
-                                              type={getInputType(column)}
-                                              value={editingCell.value || ""}
-                                              onChange={(e) =>
-                                                setEditingCell({ ...editingCell, value: e.target.value })
-                                              }
-                                              onKeyDown={handleKeyDown}
-                                              onBlur={saveEdit}
-                                              className="h-8 text-sm"
-                                            />
-                                          )}
-                                          <div className="flex gap-1">
-                                            <Button
-                                              size="sm"
-                                              variant="ghost"
-                                              onClick={saveEdit}
-                                              className="h-6 w-6 p-0"
-                                            >
-                                              <Check className="h-3 w-3 text-green-600" />
-                                            </Button>
-                                            <Button
-                                              size="sm"
-                                              variant="ghost"
-                                              onClick={cancelEdit}
-                                              className="h-6 w-6 p-0"
-                                            >
-                                              <X className="h-3 w-3 text-red-600" />
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <span
-                                          className={cn(
-                                            "block w-full",
-                                            !column.primaryKey && "hover:bg-muted/30 rounded px-1 py-0.5",
-                                          )}
-                                        >
-                                          {formatCellValue(record[column.name], column)}
-                                        </span>
-                                      )}
+                              {paginatedRecords.map((record, index) => {
+                                const recordKey = getRecordKey(record, selectedTable.columns)
+                                return (
+                                  <TableRow key={recordKey}>
+                                    <TableCell>
+                                      <Checkbox
+                                        checked={selectedRecords.some((r) => getRecordKey(r, selectedTable.columns) === recordKey)}
+                                        onCheckedChange={() => toggleRecordSelection(record)}
+                                      />
                                     </TableCell>
-                                  ))}
-                                  <TableCell>
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="sm">
-                                          <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => setEditingRecord(record)}>
-                                          <Edit className="mr-2 h-4 w-4" />
-                                          Edit Form
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          onClick={() => handleDeleteRecord(record.id)}
-                                          className="text-destructive"
-                                        >
-                                          <Trash2 className="mr-2 h-4 w-4" />
-                                          Delete
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
+                                    {selectedTable.columns.map((column, colIdx) => (
+                                      <TableCell
+                                        key={`${recordKey}-${column.name}-${colIdx}`}
+                                        className={cn(
+                                          "cursor-pointer hover:bg-muted/50 transition-colors align-top",
+                                          editingCell?.recordId === record["id"] &&
+                                            editingCell?.columnName === column.name &&
+                                            "bg-muted",
+                                          column.primaryKey && "opacity-60",
+                                          column.foreignKey && "opacity-60",
+                                        )}
+                                        style={{ minWidth: 0, maxWidth: 200, overflow: 'hidden' }}
+                                        onDoubleClick={() => startEditing(record["id"], column.name, record[column.name])}
+                                        title={
+                                          column.primaryKey
+                                            ? "Double-click to edit (Primary keys cannot be edited)"
+                                            : "Double-click to edit"
+                                        }
+                                      >
+                                        {editingCell?.recordId === record["id"] &&
+                                        editingCell?.columnName === column.name ? (
+                                          <div className="flex items-center gap-2">
+                                            {column.type === "BOOLEAN" ? (
+                                              <Switch
+                                                checked={editingCell.value}
+                                                onCheckedChange={(checked) =>
+                                                  setEditingCell({ ...editingCell, value: checked })
+                                                }
+                                                onKeyDown={handleKeyDown}
+                                              />
+                                            ) : (
+                                              <Input
+                                                ref={editInputRef}
+                                                type={getInputType(column)}
+                                                value={editingCell.value || ""}
+                                                onChange={(e) =>
+                                                  setEditingCell({ ...editingCell, value: e.target.value })
+                                                }
+                                                onKeyDown={handleKeyDown}
+                                                onBlur={saveEdit}
+                                                className="h-8 text-sm"
+                                              />
+                                            )}
+                                            <div className="flex gap-1">
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={saveEdit}
+                                                className="h-6 w-6 p-0"
+                                              >
+                                                <Check className="h-3 w-3 text-green-600" />
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={cancelEdit}
+                                                className="h-6 w-6 p-0"
+                                              >
+                                                <X className="h-3 w-3 text-red-600" />
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <span
+                                            className={cn(
+                                              "block w-full truncate text-ellipsis whitespace-nowrap",
+                                              !column.primaryKey && "hover:bg-muted/30 rounded px-1 py-0.5",
+                                            )}
+                                            style={{ minWidth: 0, maxWidth: 200, display: 'block' }}
+                                            title={
+                                              record[column.name] !== null && record[column.name] !== undefined
+                                                ? String(formatCellValue(record[column.name], column))
+                                                : ''
+                                            }
+                                          >
+                                            {formatCellValue(record[column.name], column)}
+                                          </span>
+                                        )}
+                                      </TableCell>
+                                    ))}
+                                    <TableCell>
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" size="sm">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                          <DropdownMenuItem onClick={() => setEditingRecord(record)}>
+                                            <Edit className="mr-2 h-4 w-4" />
+                                            Edit Form
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            onClick={() => handleDeleteRecord(record["id"])}
+                                            className="text-destructive"
+                                          >
+                                            <Trash2 className="mr-2 h-4 w-4" />
+                                            Delete
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </TableCell>
+                                  </TableRow>
+                                )
+                              })}
                             </TableBody>
                           </Table>
                         </div>
@@ -952,18 +1097,40 @@ export function TableManager() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {selectedTable.columns.map((column) => (
-                                <TableRow key={column.name}>
+                              {selectedTable.columns.map((column, colIdx) => (
+                                <TableRow key={`${column.name}-${colIdx}`}>
                                   <TableCell className="font-mono font-medium">{column.name}</TableCell>
                                   <TableCell className="font-mono">{column.type}</TableCell>
-                                  <TableCell>{column.nullable ? "Yes" : "No"}</TableCell>
                                   <TableCell>
-                                    <div className="flex gap-1">
-                                      {column.primaryKey && <Badge variant="outline">PRIMARY</Badge>}
+                                    {column.nullable ? (
+                                      <Check className="h-4 w-4 text-green-600" />
+                                    ) : (
+                                      <X className="h-4 w-4 text-muted-foreground" />
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex gap-1 items-center">
+                                      {column.primaryKey && (
+                                        <Key className="h-4 w-4 text-yellow-600" />
+                                      )}
+                                      {column.foreignKey && !column.primaryKey && (
+                                        <LinkIcon className="h-4 w-4 text-blue-600" />
+                                      )}
+                                      {!column.primaryKey && !column.foreignKey && (
+                                        column.unique ? null : (
+                                          <X className="h-4 w-4 text-muted-foreground" />
+                                        )
+                                      )}
                                       {column.unique && <Badge variant="outline">UNIQUE</Badge>}
                                     </div>
                                   </TableCell>
-                                  <TableCell className="font-mono text-sm">{column.defaultValue || "-"}</TableCell>
+                                  <TableCell className="font-mono text-sm">{
+                                    column.defaultValue !== undefined && column.defaultValue !== null && column.defaultValue !== ''
+                                      ? (typeof column.defaultValue === 'object' && column.defaultValue !== null && (column.defaultValue as any).String !== undefined
+                                          ? (column.defaultValue as any).String
+                                          : String(column.defaultValue))
+                                      : "-"
+                                  }</TableCell>
                                 </TableRow>
                               ))}
                             </TableBody>

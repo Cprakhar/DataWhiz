@@ -42,7 +42,7 @@ export default function AssistantPage() {
       const { text } = await generateText({
         model: openai("gpt-4o"),
         system: `You are a SQL expert. Generate SQL queries based on natural language prompts. 
-        The database type is ${activeConnection.type}. 
+        The database type is ${activeConnection.db_type}. 
         Available tables: users (id, email, name, created_at), orders (id, user_id, total, created_at), products (id, name, price, category_id).
         Return only the SQL query without explanation.`,
         prompt: prompt,
@@ -102,7 +102,7 @@ export default function AssistantPage() {
             </h2>
             <p className="text-muted-foreground">Ask questions in natural language and get SQL queries</p>
           </div>
-          <Badge className={getDatabaseColor(activeConnection.type)}>{activeConnection.type.toUpperCase()}</Badge>
+          <Badge className={getDatabaseColor(activeConnection.db_type)}>{activeConnection.db_type.toUpperCase()}</Badge>
         </div>
 
         {/* Query Input */}

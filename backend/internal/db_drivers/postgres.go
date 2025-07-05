@@ -8,6 +8,104 @@ import (
 	"strings"
 )
 
+// GetPostgresTableMetadata returns column metadata for a given table
+func GetPostgresTableMetadata(dbConn *sql.DB, tableName string) ([]ColumnMeta, error) {
+	columns := []ColumnMeta{}
+
+	colQuery := `SELECT column_name, data_type, is_nullable, column_default
+			   FROM information_schema.columns WHERE table_name = $1`
+	rows, err := dbConn.Query(colQuery, tableName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var col ColumnMeta
+		var nullable string
+		err := rows.Scan(&col.Name, &col.DataType, &nullable, &col.Default)
+		if err != nil {
+			return nil, err
+		}
+		col.Nullable = (nullable == "YES")
+		columns = append(columns, col)
+	}
+
+	// Get Unique Keys
+	uniqueQuery := `SELECT kcu.column_name
+				FROM information_schema.table_constraints tc
+				JOIN information_schema.key_column_usage kcu
+				  ON tc.constraint_name = kcu.constraint_name
+				  AND tc.table_schema = kcu.table_schema
+				WHERE tc.constraint_type = 'UNIQUE' AND tc.table_name = $1;`
+	uniqueRows, err := dbConn.Query(uniqueQuery, tableName)
+	uniqueCols := map[string]bool{}
+	if err == nil {
+		defer uniqueRows.Close()
+		for uniqueRows.Next() {
+			var uqCol string
+			uniqueRows.Scan(&uqCol)
+			uniqueCols[uqCol] = true
+		}
+	}
+	for i := range columns {
+		if uniqueCols[columns[i].Name] {
+			columns[i].UniqueKey = true
+		}
+	}
+
+	// Get Primary Key
+	pKQuery := `SELECT a.attname FROM pg_index i JOIN pg_attribute a 
+			   ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+			   WHERE i.indrelid = $1::regclass AND i.indisprimary;`
+	pKRows, err := dbConn.Query(pKQuery, tableName)
+	if err != nil {
+		return nil, err
+	}
+	defer pKRows.Close()
+
+	pKCols := map[string]bool{}
+	for pKRows.Next() {
+		var pkCol string
+		pKRows.Scan(&pkCol)
+		pKCols[pkCol] = true
+	}
+	for i := range columns {
+		if pKCols[columns[i].Name] {
+			columns[i].PrimaryKey = true
+		}
+	}
+
+	// Get Foreign Keys
+	fkQuery := `SELECT kcu.column_name
+			   FROM information_schema.table_constraints tc
+			   JOIN information_schema.key_column_usage kcu
+				 ON tc.constraint_name = kcu.constraint_name
+				 AND tc.table_schema = kcu.table_schema
+			   WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name = $1;`
+	fkRows, err := dbConn.Query(fkQuery, tableName)
+	if err != nil {
+		return nil, err
+	}
+	defer fkRows.Close()
+
+	fkCols := map[string]bool{}
+	for fkRows.Next() {
+		var fkCol string
+		fkRows.Scan(&fkCol)
+		fkCols[fkCol] = true
+	}
+	for i := range columns {
+		if fkCols[columns[i].Name] {
+			columns[i].ForeignKey = true
+		}
+	}
+
+	return columns, nil
+}
+
+// (removed duplicate GetPostgresTableMetadata)
+
 // OpenPostgres opens a PostgreSQL database connection using pgx driver
 func OpenPostgres(connStr string) (*sql.DB, error) {
 	return sql.Open("pgx", connStr)
@@ -26,17 +124,11 @@ func GetPostgresTablesAndColumns(dbConn *sql.DB) ([]map[string]interface{}, erro
 		if err := rows.Scan(&tableName); err != nil {
 			continue
 		}
-		colRows, err := dbConn.Query("SELECT column_name FROM information_schema.columns WHERE table_name = $1", tableName)
+		colMeta, err := GetPostgresTableMetadata(dbConn, tableName)
 		if err != nil {
 			continue
 		}
-		cols := []string{}
-		for colRows.Next() {
-			var colName string
-			colRows.Scan(&colName)
-			cols = append(cols, colName)
-		}
-		tables = append(tables, map[string]interface{}{"name": tableName, "columns": cols})
+		tables = append(tables, map[string]interface{}{"name": tableName, "columns": colMeta})
 	}
 	return tables, nil
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState } from "react"
+import { createContext, useContext, useState, useEffect } from "react"
 
 export type DatabaseType = "mongodb" | "postgresql" | "mysql" | "sqlite"
 
@@ -40,9 +40,28 @@ export function useDatabase() {
 }
 
 export function DatabaseProvider({ children }: { children: React.ReactNode }) {
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL
   const [connections, setConnections] = useState<DatabaseConnection[]>([])
-  const [activeConnection, setActiveConnection] = useState<DatabaseConnection | null>(connections[0])
+  const [activeConnection, setActiveConnection] = useState<DatabaseConnection | null>(null)
   const [showConnectionForm, setShowConnectionForm] = useState(false)
+
+  // Fetch connections from backend on mount
+  useEffect(() => {
+    async function fetchConnections() {
+      try {
+        const res = await fetch(`${backendUrl}/api/db/list`, { credentials: "include" })
+        if (!res.ok) throw new Error("Failed to fetch connections")
+        const data = await res.json()
+        setConnections(data)
+        if (Array.isArray(data) && data.length > 0) {
+          setActiveConnection(data[0])
+        }
+      } catch (err) {
+        // Optionally handle error
+      }
+    }
+    fetchConnections()
+  }, [])
 
   const addConnection = (connectionData: Omit<DatabaseConnection, "id" | "isConnected">) => {
     const newConnection: DatabaseConnection = {

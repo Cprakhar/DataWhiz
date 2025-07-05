@@ -1,9 +1,47 @@
 package db_drivers
 
 import (
+	"database/sql"
 	"errors"
 	"strings"
 )
+// ColumnMeta holds column metadata for a table (shared by all drivers)
+type ColumnMeta struct {
+	   Name       string         `json:"name"`
+	   DataType   string         `json:"data_type"`
+	   Nullable   bool           `json:"nullable"`
+	   Default    sql.NullString `json:"default,omitempty"`
+	   PrimaryKey bool           `json:"primary_key,omitempty"`
+	   ForeignKey bool           `json:"foreign_key,omitempty"`
+	   UniqueKey  bool           `json:"unique_key,omitempty"`
+}
+
+// GetTableMetadata returns column metadata for a given table for supported DBs
+func GetTableMetadata(dbType, connStr, tableName string) (interface{}, error) {
+	switch dbType {
+	case DBTypePostgres:
+		normalized := connStr
+		if strings.HasPrefix(connStr, "postgresql://") {
+			normalized = "postgres://" + connStr[len("postgresql://"):]
+		}
+		dbConn, err := OpenPostgres(normalized)
+		if err != nil {
+			return nil, err
+		}
+		defer dbConn.Close()
+		return GetPostgresTableMetadata(dbConn, tableName)
+	case DBTypeSQLite:
+		dbConn, err := OpenSQLite(connStr)
+		if err != nil {
+			return nil, err
+		}
+		defer dbConn.Close()
+		return GetSQLiteTableMetadata(dbConn, tableName)
+	// TODO: Add MySQL, MongoDB
+	default:
+		return nil, ErrUnsupportedDBType
+	}
+}
 
 // ExecuteQuery dispatches query execution to the correct DB driver and returns the result as []map[string]interface{} for SQL DBs or []map[string]interface{} for MongoDB
 func ExecuteQuery(dbType, connStr, query string) (interface{}, error) {

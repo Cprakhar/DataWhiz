@@ -68,7 +68,7 @@ export default function DashboardPage() {
           <h2 className="text-2xl font-bold tracking-tight">Database Dashboard</h2>
           <p className="text-muted-foreground">Connected to {activeConnection.name}</p>
         </div>
-        <Badge className={getDatabaseColor(activeConnection.type)}>{activeConnection.type.toUpperCase()}</Badge>
+        <Badge className={getDatabaseColor(activeConnection.db_type)}>{activeConnection.db_type.toUpperCase()}</Badge>
       </div>
 
       <div className="dashboard-grid">

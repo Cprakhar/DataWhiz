@@ -116,7 +116,7 @@ export default function HistoryPage() {
             <p className="text-muted-foreground">View and manage your past database queries</p>
           </div>
           {activeConnection && (
-            <Badge className={getDatabaseColor(activeConnection.type)}>{activeConnection.type.toUpperCase()}</Badge>
+            <Badge className={getDatabaseColor(activeConnection.db_type)}>{activeConnection.db_type.toUpperCase()}</Badge>
           )}
         </div>
 
