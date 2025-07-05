@@ -1,21 +1,18 @@
 package handlers
 
 import (
-	"context"
-	"database/sql"
 	"fmt"
 	"net/http"
 	"time"
 
 	"datawhiz/internal/db"
+	dbdrivers "datawhiz/internal/db_drivers"
 	"datawhiz/internal/models"
 	utils "datawhiz/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type ConnectRequest struct {
@@ -50,32 +47,13 @@ func ConnectDBHandler(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or missing token"})
 		return
 	}
-	// Validate connection before saving
-	switch req.DBType {
-	case "sqlite":
-		dbConn, err := db.OpenSQLite(req.ConnString)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid SQLite connection string"})
-			return
+	// Validate connection before saving using modular driver
+	if err := dbdrivers.PingConnection(req.DBType, req.ConnString); err != nil {
+		if err == dbdrivers.ErrUnsupportedDBType {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported DB type"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid connection string"})
 		}
-		dbConn.Close()
-	case "postgresql":
-		if err := validatePostgres(req.ConnString); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid PostgreSQL connection string"})
-			return
-		}
-	case "mysql":
-		if err := validateMySQL(req.ConnString); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid MySQL connection string"})
-			return
-		}
-	case "mongodb":
-		if err := validateMongo(req.ConnString); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid MongoDB connection string"})
-			return
-		}
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported DB type"})
 		return
 	}
 	// Encrypt connection string
@@ -87,46 +65,25 @@ func ConnectDBHandler(c *gin.Context) {
 
 	// Check for duplicate (same user, same db_type, same decrypted conn_string),
 	// and treat postgresql:// and postgres:// as equivalent for PostgreSQL
-	var existing []models.Connection
-	if err := db.DB.Where("user_id = ? AND db_type = ?", userID, req.DBType).Find(&existing).Error; err == nil {
-		// Normalize the input connection string for PostgreSQL
-		normalizedInput := req.ConnString
-		if req.DBType == "postgresql" {
-			if len(req.ConnString) >= 13 && req.ConnString[:13] == "postgresql://" {
-				normalizedInput = "postgres://" + req.ConnString[13:]
-			}
-		}
-		for _, ex := range existing {
-			dec, derr := db.Decrypt(ex.ConnString)
-			if derr != nil {
-				continue
-			}
-			normalizedExisting := dec
-			if req.DBType == "postgresql" {
-				if len(dec) >= 13 && dec[:13] == "postgresql://" {
-					normalizedExisting = "postgres://" + dec[13:]
-				}
-			}
-			if normalizedExisting == normalizedInput {
-				c.JSON(http.StatusConflict, gin.H{"error": "Duplicate connection: this connection string already exists for this user and database type."})
-				return
-			}
-		}
+	if isDuplicateConnection(userID, req.DBType, req.ConnString) {
+		c.JSON(http.StatusConflict, gin.H{"error": "Duplicate connection: this connection string already exists for this user and database type."})
+		return
 	}
 
-	// Extract host, port, and database name for supported DB types
+	// Extract host, port, and database name for supported DB types using db_drivers
 	var host string
 	var port int
 	var database string
 	switch req.DBType {
 	case "postgresql":
-		host, port, database = utils.ExtractPostgresInfo(req.ConnString)
+		host, port, database = dbdrivers.ExtractPostgresInfo(req.ConnString)
 	case "mysql":
-		host, port, database = utils.ExtractMySQLInfo(req.ConnString)
+		host, port, database = dbdrivers.ExtractMySQLInfo(req.ConnString)
 	case "sqlite":
-		database = utils.ExtractSQLiteFile(req.ConnString)
+		database = dbdrivers.ExtractSQLiteFile(req.ConnString)
 	case "mongodb":
-		database = utils.ExtractMongoDBName(req.ConnString)
+		// Use exported version for MongoDB extraction
+		database = dbdrivers.ExtractMongoDBName(req.ConnString)
 	}
 
 	conn := models.Connection{
@@ -146,7 +103,31 @@ func ConnectDBHandler(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"connection_id": conn.ID})
 }
 
-// --- DB info extraction helpers are now in internal/utils/dbinfo.go (package cache) ---
+// isDuplicateConnection checks for duplicate DB connections for a user
+func isDuplicateConnection(userID uint, dbType, connStr string) bool {
+	var existing []models.Connection
+	if err := db.DB.Where("user_id = ? AND db_type = ?", userID, dbType).Find(&existing).Error; err != nil {
+		return false
+	}
+	normalizedInput := connStr
+	if dbType == "postgresql" && len(connStr) >= 13 && connStr[:13] == "postgresql://" {
+		normalizedInput = "postgres://" + connStr[13:]
+	}
+	for _, ex := range existing {
+		dec, derr := db.Decrypt(ex.ConnString)
+		if derr != nil {
+			continue
+		}
+		normalizedExisting := dec
+		if dbType == "postgresql" && len(dec) >= 13 && dec[:13] == "postgresql://" {
+			normalizedExisting = "postgres://" + dec[13:]
+		}
+		if normalizedExisting == normalizedInput {
+			return true
+		}
+	}
+	return false
+}
 
 // TestDBHandler validates a connection string but does NOT persist it
 func TestDBHandler(c *gin.Context) {
@@ -155,32 +136,13 @@ func TestDBHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// Validate connection only, do not save
-	switch req.DBType {
-	case "sqlite":
-		dbConn, err := db.OpenSQLite(req.ConnString)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid SQLite connection string"})
-			return
+	// Validate connection only, do not save, using modular driver
+	if err := dbdrivers.PingConnection(req.DBType, req.ConnString); err != nil {
+		if err == dbdrivers.ErrUnsupportedDBType {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported DB type"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid connection string"})
 		}
-		dbConn.Close()
-	case "postgresql":
-		if err := validatePostgres(req.ConnString); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid PostgreSQL connection string"})
-			return
-		}
-	case "mysql":
-		if err := validateMySQL(req.ConnString); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid MySQL connection string"})
-			return
-		}
-	case "mongodb":
-		if err := validateMongo(req.ConnString); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid MongoDB connection string"})
-			return
-		}
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported DB type"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Connection successful"})
@@ -207,49 +169,7 @@ func ListConnectionsHandler(c *gin.Context) {
 			conn.IsConnected = false
 			continue
 		}
-		var pingErr error
-		switch conn.DBType {
-		case "sqlite":
-			dbConn, err := db.OpenSQLite(connStr)
-			if err == nil {
-				pingErr = dbConn.Ping()
-				dbConn.Close()
-			} else {
-				pingErr = err
-			}
-		case "postgresql":
-			normalized := connStr
-			if len(connStr) >= 13 && connStr[:13] == "postgresql://" {
-				normalized = "postgres://" + connStr[13:]
-			}
-			dbConn, err := sql.Open("pgx", normalized)
-			if err == nil {
-				pingErr = dbConn.Ping()
-				dbConn.Close()
-			} else {
-				pingErr = err
-			}
-		case "mysql":
-			dbConn, err := sql.Open("mysql", connStr)
-			if err == nil {
-				pingErr = dbConn.Ping()
-				dbConn.Close()
-			} else {
-				pingErr = err
-			}
-		case "mongodb":
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-			client, err := mongo.Connect(ctx, options.Client().ApplyURI(connStr))
-			if err == nil {
-				pingErr = client.Ping(ctx, nil)
-				client.Disconnect(ctx)
-			} else {
-				pingErr = err
-			}
-			cancel()
-		default:
-			pingErr = fmt.Errorf("unsupported db type")
-		}
+		pingErr := dbdrivers.PingConnection(conn.DBType, connStr)
 		if pingErr == nil {
 			conn.IsConnected = true
 			now := time.Now()
@@ -293,195 +213,19 @@ func SchemaIntrospectionHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Connection not found"})
 		return
 	}
-	// Decrypt connection string
 	connStr, err := db.Decrypt(conn.ConnString)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decrypt connection string"})
 		return
 	}
-	if conn.DBType == "sqlite" {
-		dbConn, err := db.OpenSQLite(connStr)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to DB"})
-			return
-		}
-		defer dbConn.Close()
-		rows, err := dbConn.Query("SELECT name FROM sqlite_master WHERE type='table'")
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list tables"})
-			return
-		}
-		tables := []map[string]interface{}{}
-		for rows.Next() {
-			var tableName string
-			if err := rows.Scan(&tableName); err != nil {
-				continue
-			}
-			// Get columns for each table
-			colRows, err := dbConn.Query("PRAGMA table_info(" + tableName + ")")
-			if err != nil {
-				continue
-			}
-			cols := []string{}
-			for colRows.Next() {
-				var cid int
-				var name, ctype string
-				var notnull, pk int
-				var dfltValue interface{}
-				colRows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk)
-				cols = append(cols, name)
-			}
-			tables = append(tables, map[string]interface{}{"name": tableName, "columns": cols})
-		}
-		// At the end, before returning response:
-		if tables != nil {
-			schemaCache.Set(cacheKey, gin.H{"tables": tables}, 5*time.Minute)
-		}
-		c.JSON(http.StatusOK, gin.H{"tables": tables})
+	// Use driver-agnostic introspection function
+	tables, err := dbdrivers.IntrospectSchema(conn.DBType, connStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	if conn.DBType == "postgresql" {
-		normalized := connStr
-		if len(connStr) >= 13 && connStr[:13] == "postgresql://" {
-			normalized = "postgres://" + connStr[13:]
-		}
-		dbConn, err := sql.Open("pgx", normalized)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to DB"})
-			return
-		}
-		defer dbConn.Close()
-		rows, err := dbConn.Query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list tables"})
-			return
-		}
-		tables := []map[string]interface{}{}
-		for rows.Next() {
-			var tableName string
-			if err := rows.Scan(&tableName); err != nil {
-				continue
-			}
-			colRows, err := dbConn.Query("SELECT column_name FROM information_schema.columns WHERE table_name = $1", tableName)
-			if err != nil {
-				continue
-			}
-			cols := []string{}
-			for colRows.Next() {
-				var colName string
-				colRows.Scan(&colName)
-				cols = append(cols, colName)
-			}
-			tables = append(tables, map[string]interface{}{"name": tableName, "columns": cols})
-		}
-		// At the end, before returning response:
-		if tables != nil {
-			schemaCache.Set(cacheKey, gin.H{"tables": tables}, 5*time.Minute)
-		}
-		c.JSON(http.StatusOK, gin.H{"tables": tables})
-		return
+	if tables != nil {
+		schemaCache.Set(cacheKey, gin.H{"tables": tables}, 5*time.Minute)
 	}
-	if conn.DBType == "mysql" {
-		dbConn, err := sql.Open("mysql", connStr)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to DB"})
-			return
-		}
-		defer dbConn.Close()
-		rows, err := dbConn.Query("SHOW TABLES")
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list tables"})
-			return
-		}
-		tables := []map[string]interface{}{}
-		for rows.Next() {
-			var tableName string
-			if err := rows.Scan(&tableName); err != nil {
-				continue
-			}
-			colRows, err := dbConn.Query("SHOW COLUMNS FROM " + tableName)
-			if err != nil {
-				continue
-			}
-			cols := []string{}
-			for colRows.Next() {
-				var colName string
-				colRows.Scan(&colName)
-				cols = append(cols, colName)
-			}
-			tables = append(tables, map[string]interface{}{"name": tableName, "columns": cols})
-		}
-		// At the end, before returning response:
-		if tables != nil {
-			schemaCache.Set(cacheKey, gin.H{"tables": tables}, 5*time.Minute)
-		}
-		c.JSON(http.StatusOK, gin.H{"tables": tables})
-		return
-	}
-	if conn.DBType == "mongodb" {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		client, err := mongo.Connect(ctx, options.Client().ApplyURI(connStr))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to MongoDB"})
-			return
-		}
-		defer client.Disconnect(ctx)
-		dbName := "test" // TODO: parse from connStr or store in model
-		dbObj := client.Database(dbName)
-		colls, err := dbObj.ListCollectionNames(ctx, struct{}{})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list collections"})
-			return
-		}
-		tables := []map[string]interface{}{}
-		for _, coll := range colls {
-			// For Mongo, just list collection names
-			tables = append(tables, map[string]interface{}{"name": coll, "columns": []string{}})
-		}
-		// At the end, before returning response:
-		if tables != nil {
-			schemaCache.Set(cacheKey, gin.H{"tables": tables}, 5*time.Minute)
-		}
-		c.JSON(http.StatusOK, gin.H{"tables": tables})
-		return
-	}
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Schema introspection not implemented for this DB type"})
-}
-
-func validatePostgres(connStr string) error {
-	normalized := connStr
-	if len(connStr) >= 13 && connStr[:13] == "postgresql://" {
-		normalized = "postgres://" + connStr[13:]
-	}
-	dbConn, err := sql.Open("pgx", normalized)
-	if err != nil {
-		return err
-	}
-	defer dbConn.Close()
-	err = dbConn.Ping()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func validateMySQL(connStr string) error {
-	dbConn, err := sql.Open("mysql", connStr)
-	if err != nil {
-		return err
-	}
-	defer dbConn.Close()
-	return dbConn.Ping()
-}
-
-func validateMongo(connStr string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(connStr))
-	if err != nil {
-		return err
-	}
-	defer client.Disconnect(ctx)
-	return client.Ping(ctx, nil)
+	c.JSON(http.StatusOK, gin.H{"tables": tables})
 }

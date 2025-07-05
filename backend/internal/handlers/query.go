@@ -2,11 +2,14 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
 	"datawhiz/internal/db"
+	dbdrivers "datawhiz/internal/db_drivers"
 	"datawhiz/internal/models"
+	cache "datawhiz/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,6 +18,8 @@ type ExecuteQueryRequest struct {
 	ConnectionID uint   `json:"connection_id" binding:"required"`
 	Query        string `json:"query" binding:"required"`
 }
+
+var queryCache = cache.NewCache()
 
 func ExecuteQueryHandler(c *gin.Context) {
 	var req ExecuteQueryRequest
@@ -33,7 +38,7 @@ func ExecuteQueryHandler(c *gin.Context) {
 		return
 	}
 	var dbType = conn.DBType
-	if dbType != "sqlite" && dbType != "postgres" && dbType != "mysql" && dbType != "mongodb" {
+	if dbType != "sqlite" && dbType != "postgresql" && dbType != "mysql" && dbType != "mongodb" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported DB type"})
 		return
 	}
@@ -42,64 +47,24 @@ func ExecuteQueryHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decrypt connection string"})
 		return
 	}
-	var result interface{}
-	driverName := dbType
-	if dbType == "sqlite" {
-		driverName = "sqlite3"
+
+	// Cache key: userID:connID:query
+	cacheKey := fmt.Sprintf("query:%d:%d:%s", userID, req.ConnectionID, req.Query)
+	if cached, found := queryCache.Get(cacheKey); found {
+		c.JSON(http.StatusOK, gin.H{"result": cached, "cached": true})
+		return
 	}
-	if dbType == "sqlite" || dbType == "postgres" || dbType == "mysql" {
-		dbConn, err := db.OpenSQLWithPool(driverName, connStr)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to DB"})
-			return
-		}
-		defer dbConn.Close()
-		rows, err := dbConn.Query(req.Query)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		cols, _ := rows.Columns()
-		results := []map[string]interface{}{}
-		for rows.Next() {
-			columns := make([]interface{}, len(cols))
-			columnPointers := make([]interface{}, len(cols))
-			for i := range columns {
-				columnPointers[i] = &columns[i]
-			}
-			if err := rows.Scan(columnPointers...); err != nil {
-				continue
-			}
-			rowMap := map[string]interface{}{}
-			for i, colName := range cols {
-				val := columnPointers[i].(*interface{})
-				rowMap[colName] = *val
-			}
-			results = append(results, rowMap)
-		}
-		result = results
-	} else if dbType == "mongodb" {
-		client, ctx, cancel, err := db.OpenMongoWithPool(connStr)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to MongoDB"})
-			return
-		}
-		defer cancel()
-		defer client.Disconnect(ctx)
-		// For Mongo, expect query as collection name
-		coll := client.Database("test").Collection(req.Query) // TODO: parse db name
-		cur, err := coll.Find(ctx, struct{}{})
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		var docs []map[string]interface{}
-		if err := cur.All(ctx, &docs); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		result = docs
+
+	// Use db_drivers to execute the query in a modular way
+	result, err := dbdrivers.ExecuteQuery(dbType, connStr, req.Query)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
+
+	// Save to cache (5 min TTL)
+	queryCache.Set(cacheKey, result, 5*time.Minute)
+
 	// Save to query history
 	resultSample := ""
 	if b, err := json.Marshal(result); err == nil {
@@ -117,5 +82,5 @@ func ExecuteQueryHandler(c *gin.Context) {
 		ExecutedAt:     time.Now(),
 		ResultSample:   resultSample,
 	})
-	c.JSON(http.StatusOK, gin.H{"result": result})
+	c.JSON(http.StatusOK, gin.H{"result": result, "cached": false})
 }

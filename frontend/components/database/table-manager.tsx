@@ -65,71 +65,72 @@ interface EditingCell {
   originalValue: any
 }
 
-// Mock data (same as before)
-const mockTables: DatabaseTable[] = [
-  {
-    name: "users",
-    type: "table",
-    rowCount: 1250,
-    columns: [
-      { name: "id", type: "INTEGER", nullable: false, primaryKey: true, unique: true },
-      { name: "email", type: "VARCHAR(255)", nullable: false, primaryKey: false, unique: true },
-      { name: "name", type: "VARCHAR(100)", nullable: false, primaryKey: false, unique: false },
-      {
-        name: "created_at",
-        type: "TIMESTAMP",
-        nullable: false,
-        primaryKey: false,
-        unique: false,
-        defaultValue: "CURRENT_TIMESTAMP",
-      },
-      { name: "is_active", type: "BOOLEAN", nullable: false, primaryKey: false, unique: false, defaultValue: "true" },
-    ],
-    records: [
-      { id: 1, email: "john@example.com", name: "John Doe", created_at: "2024-01-15T10:30:00Z", is_active: true },
-      { id: 2, email: "jane@example.com", name: "Jane Smith", created_at: "2024-01-16T14:20:00Z", is_active: true },
-      { id: 3, email: "bob@example.com", name: "Bob Johnson", created_at: "2024-01-17T09:15:00Z", is_active: false },
-      { id: 4, email: "alice@example.com", name: "Alice Brown", created_at: "2024-01-18T16:45:00Z", is_active: true },
-    ],
-  },
-  {
-    name: "orders",
-    type: "table",
-    rowCount: 3420,
-    columns: [
-      { name: "id", type: "INTEGER", nullable: false, primaryKey: true, unique: true },
-      { name: "user_id", type: "INTEGER", nullable: false, primaryKey: false, unique: false },
-      { name: "total", type: "DECIMAL(10,2)", nullable: false, primaryKey: false, unique: false },
-      {
-        name: "status",
-        type: "VARCHAR(50)",
-        nullable: false,
-        primaryKey: false,
-        unique: false,
-        defaultValue: "pending",
-      },
-      {
-        name: "created_at",
-        type: "TIMESTAMP",
-        nullable: false,
-        primaryKey: false,
-        unique: false,
-        defaultValue: "CURRENT_TIMESTAMP",
-      },
-    ],
-    records: [
-      { id: 1, user_id: 1, total: 99.99, status: "completed", created_at: "2024-01-20T10:30:00Z" },
-      { id: 2, user_id: 2, total: 149.5, status: "pending", created_at: "2024-01-21T14:20:00Z" },
-      { id: 3, user_id: 1, total: 75.25, status: "completed", created_at: "2024-01-22T09:15:00Z" },
-    ],
-  },
-]
+// (Removed duplicate imports)
+
+
+// ...existing code...
 
 export function TableManager() {
   const { activeConnection } = useDatabase()
   const { toast } = useToast()
-  const [tables, setTables] = useState<DatabaseTable[]>(mockTables)
-  const [selectedTable, setSelectedTable] = useState<DatabaseTable | null>(tables[0])
+  const [tables, setTables] = useState<DatabaseTable[]>([])
+  const [selectedTable, setSelectedTable] = useState<DatabaseTable | null>(null)
+  // Fetch tables from backend when activeConnection changes
+  useEffect(() => {
+    if (!activeConnection) {
+      setTables([])
+      setSelectedTable(null)
+      return
+    }
+    const fetchTables = async () => {
+      try {
+        // Backend endpoint: /api/db/:connection_id/tables
+        const res = await fetch(`/api/db/${activeConnection.id}/tables`)
+        if (!res.ok) throw new Error((await res.json()).error || 'Failed to fetch tables')
+        const data = await res.json()
+        // Response: { tables: [{ name, columns: [...] } ...] }
+        const backendTables = data.tables.map((t: any) => ({
+          name: t.name,
+          type: t.type || "table", // fallback
+          rowCount: t.rowCount || 0,
+          columns: (t.columns || []).map((col: any) => ({
+            name: col.name || col,
+            type: col.type || "TEXT",
+            nullable: col.nullable ?? true,
+            primaryKey: col.primaryKey ?? false,
+            unique: col.unique ?? false,
+            defaultValue: col.defaultValue,
+          })),
+          records: [], // will be fetched on table select
+        }))
+        setTables(backendTables)
+        setSelectedTable(backendTables[0] || null)
+      } catch (err: any) {
+        setTables([])
+        setSelectedTable(null)
+        toast({ title: "Error", description: err?.message || "Failed to fetch tables", variant: "destructive" })
+      }
+    }
+    fetchTables()
+  }, [activeConnection])
+
+  // Fetch records for selected table
+  useEffect(() => {
+    if (!activeConnection || !selectedTable) return
+    const fetchRecords = async () => {
+      try {
+        // Backend endpoint: /api/db/:connection_id/table/:table_name/records
+        const res = await fetch(`/api/db/${activeConnection.id}/table/${encodeURIComponent(selectedTable.name)}/records`)
+        if (!res.ok) throw new Error((await res.json()).error || 'Failed to fetch records')
+        const data = await res.json()
+        // Response: { records: [...] }
+        setTables((prev) => prev.map((t) => t.name === selectedTable.name ? { ...t, records: data.records || [] } : t))
+      } catch (err: any) {
+        toast({ title: "Error", description: err?.message || "Failed to fetch records", variant: "destructive" })
+      }
+    }
+    fetchRecords()
+  }, [activeConnection, selectedTable?.name])
   const [showCreateTable, setShowCreateTable] = useState(false)
   const [showCreateRecord, setShowCreateRecord] = useState(false)
   const [editingRecord, setEditingRecord] = useState<TableRecord | null>(null)
@@ -630,7 +631,7 @@ export function TableManager() {
             <p className="text-muted-foreground">Manage tables and records in {activeConnection.name}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className={getDatabaseColor(activeConnection.type)}>{activeConnection.type.toUpperCase()}</Badge>
+            <Badge className={getDatabaseColor(activeConnection.db_type)}>{activeConnection.db_type.toUpperCase()}</Badge>
             <Button onClick={() => setShowCreateTable(true)} className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
               Create Table
