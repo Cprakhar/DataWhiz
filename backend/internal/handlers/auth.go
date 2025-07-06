@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"datawhiz/internal/db"
+	db "datawhiz/internal/db"
 	"datawhiz/internal/middleware"
 	"datawhiz/internal/models"
 

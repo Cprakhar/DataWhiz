@@ -15,7 +15,6 @@ require (
 	go.mongodb.org/mongo-driver v1.17.4
 	golang.org/x/crypto v0.39.0
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b
-	golang.org/x/time v0.12.0
 	google.golang.org/genai v1.13.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.30.0

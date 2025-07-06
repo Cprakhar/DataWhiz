@@ -14,6 +14,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar"
 import { useDatabase, getDatabaseImage } from "@/components/database/database-provider"
+import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Database, Plus, Bot, History, Settings, Home, TableIcon } from "lucide-react"
 import Link from "next/link"
@@ -53,7 +54,27 @@ const navigationItems = [
 ]
 
 export function AppSidebar() {
-  const { connections, activeConnection, setActiveConnection, setShowConnectionForm } = useDatabase()
+  const { connections, activeConnection, setActiveConnection, setShowConnectionForm, setConnections } = useDatabase()
+  // Listen for connection list changes (add/delete) and refresh connections
+  // This ensures sidebar updates in real time
+  useEffect(() => {
+    const refresh = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/db/list`, { credentials: "include" })
+        if (!res.ok) throw new Error("Failed to fetch connections")
+        const data = await res.json()
+        setConnections(data)
+      } catch (err) {
+        // Optionally handle error
+      }
+    }
+    window.addEventListener("connection-list-changed", refresh)
+    window.addEventListener("connection-added", refresh)
+    return () => {
+      window.removeEventListener("connection-list-changed", refresh)
+      window.removeEventListener("connection-added", refresh)
+    }
+  }, [setConnections])
   const pathname = usePathname()
 
   return (

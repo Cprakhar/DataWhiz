@@ -31,9 +31,10 @@ interface Connection {
 export function ConnectionManager() {
   const { setShowConnectionForm, connections, setConnections } = useDatabase()
   const { toast } = useToast()
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   // Connections are now fetched globally in DatabaseProvider
+
 
   // Disconnect logic: call backend and update UI on success
   const handleDeleteConnection = async (connectionId: string) => {
@@ -46,11 +47,11 @@ export function ConnectionManager() {
         }
       )
       if (res.ok) {
-        // Optionally, you may want to refetch or update context here if needed
         toast({
           title: "Connection removed",
           description: `Connection has been removed from your connections.`,
         })
+        window.dispatchEvent(new Event("connection-list-changed"))
       } else {
         toast({
           title: "Failed to remove connection",
@@ -67,8 +68,28 @@ export function ConnectionManager() {
     }
   }
 
-  // Listen for successful add connection and refresh list
-  // No need to listen for connection-added event to refetch, context is always up-to-date
+  // Listen for connection list changes (add/delete) and refresh connections
+  useEffect(() => {
+    const refresh = async () => {
+      setLoading(true)
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/db/list`, { credentials: "include" })
+        if (!res.ok) throw new Error("Failed to fetch connections")
+        const data = await res.json()
+        setConnections(data)
+      } catch (err) {
+        // Optionally handle error
+      } finally {
+        setLoading(false)
+      }
+    }
+    window.addEventListener("connection-list-changed", refresh)
+    window.addEventListener("connection-added", refresh)
+    return () => {
+      window.removeEventListener("connection-list-changed", refresh)
+      window.removeEventListener("connection-added", refresh)
+    }
+  }, [setConnections])
 
   return (
     <div className="w-full max-w-none">

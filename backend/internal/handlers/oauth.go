@@ -16,7 +16,7 @@ import (
 	"github.com/markbates/goth/providers/google"
 	"gorm.io/gorm"
 
-	"datawhiz/internal/db"
+	db "datawhiz/internal/db"
 	"datawhiz/internal/middleware"
 	"datawhiz/internal/models"
 )

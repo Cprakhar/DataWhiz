@@ -1,9 +1,9 @@
 package main
 
 import (
-	"datawhiz/internal/db"
 	"datawhiz/internal/handlers"
 	"datawhiz/internal/middleware"
+	db "datawhiz/internal/db"
 
 	"github.com/gin-contrib/cors"
 
@@ -53,13 +53,9 @@ func main() {
 		protected.POST("/db/test", handlers.TestDBHandler)
 		protected.GET("/db/list", handlers.ListConnectionsHandler)
 		protected.DELETE("/db/disconnect/:connection_id", handlers.DisconnectDBHandler)
-		protected.GET("/db/schema/:connection_id", handlers.SchemaIntrospectionHandler)
 		// Table and record endpoints
 		protected.GET("/db/:connection_id/tables", handlers.GetTablesHandler)
 		protected.GET("/db/:connection_id/table/:table_name/records", handlers.GetTableRecordsHandler)
-		protected.POST("/query/execute", handlers.ExecuteQueryHandler)
-		protected.POST("/query/generate", handlers.GenerateQueryHandler)
-		protected.GET("/history/:user_id", handlers.QueryHistoryHandler)
 	}
 
 	r.Run()

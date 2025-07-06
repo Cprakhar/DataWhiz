@@ -913,11 +913,6 @@ export function TableManager() {
                                         <LinkIcon className="h-4 w-4 text-blue-600" />
                                       )}
                                       {column.name}
-                                      {column.unique && (
-                                        <Badge variant="outline" className="text-xs">
-                                          UQ
-                                        </Badge>
-                                      )}
                                     </div>
                                   </TableHead>
                                 ))}

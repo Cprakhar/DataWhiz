@@ -252,7 +252,7 @@ export function ConnectionForm() {
           description: `${formData.name} has been added to your connections.`,
         })
         // Notify listeners to refresh connection list
-        window.dispatchEvent(new Event("datawhiz-connection-added"))
+        window.dispatchEvent(new Event("connection-added"))
         // Reset form
         setFormData({
           name: "",

@@ -1,20 +1,18 @@
-package db
+package db_drivers
 
 import (
-	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"database/sql"
 	"datawhiz/internal/models"
 	"encoding/base64"
+	"errors"
 	"io"
 	"os"
-	"time"
+
+	"datawhiz/internal/db/nosql_drivers"
 
 	_ "github.com/mattn/go-sqlite3"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -24,10 +22,25 @@ var (
 	encryptionKey []byte
 )
 
+// DBType constants for supported database types
+const (
+	DBTypeSQLite   = "sqlite"
+	DBTypePostgres = "postgresql"
+	DBTypeMySQL    = "mysql"
+	DBTypeMongoDB  = "mongodb"
+)
+
+// ErrUnsupportedDBType is returned when an unsupported DB type is used
+var ErrUnsupportedDBType = errors.New("unsupported database type")
+
+// DBDriver is an interface for common DB driver operations (optional, for future use)
+type DBDriver interface {
+	Validate(connStr string) error
+}
+
 func SetEncryptionKeyFromEnv() {
 	key := os.Getenv("CONN_ENCRYPTION_KEY")
 	if len(key) != 16 && len(key) != 24 && len(key) != 32 {
-		print(key)
 		panic("CONN_ENCRYPTION_KEY must be set to 16, 24, or 32 bytes (characters) for AES encryption")
 	}
 	encryptionKey = []byte(key)
@@ -40,11 +53,6 @@ func InitDB(dsn string) error {
 		return err
 	}
 	return DB.AutoMigrate(&models.User{}, &models.Connection{}, &models.QueryHistory{})
-}
-
-// OpenSQLite opens a SQLite connection for schema introspection
-func OpenSQLite(dsn string) (*sql.DB, error) {
-	return sql.Open("sqlite3", dsn)
 }
 
 func Encrypt(text string) (string, error) {
@@ -82,27 +90,119 @@ func Decrypt(cryptoText string) (string, error) {
 	return string(ciphertext), nil
 }
 
-// OpenSQLWithPool opens a SQL connection with pooling settings
-func OpenSQLWithPool(driver, dsn string) (*sql.DB, error) {
-	dbConn, err := sql.Open(driver, dsn)
+func PingConnection(dbType, connStr string) error {
+	switch dbType {
+	case DBTypeMongoDB:
+		return nosql_drivers.ValidateMongo(connStr)
+	default:
+		return PingSQLConnection(dbType, connStr)
+	}
+}
+
+func ExtractDBInfo(dbType, connStr string) (host string, port int, database string, err error) {
+	switch dbType {
+	case DBTypeMongoDB:
+		return nosql_drivers.ExtractMongoDBInfo(connStr)
+	default:
+		return ExtractSQLDBInfo(dbType, connStr)
+	}
+}
+
+// isDuplicateConnection checks for duplicate DB connections for a user
+func IsDuplicateConnection(userID uint, dbType, connStr string) bool {
+	var existing []models.Connection
+	if err := DB.Where("user_id = ? AND db_type = ?", userID, dbType).Find(&existing).Error; err != nil {
+		return false
+	}
+	normalizedInput := connStr
+	if dbType == "postgresql" && len(connStr) >= 13 && connStr[:13] == "postgresql://" {
+		normalizedInput = "postgres://" + connStr[13:]
+	}
+	for _, ex := range existing {
+		dec, derr := Decrypt(ex.ConnString)
+		if derr != nil {
+			continue
+		}
+		normalizedExisting := dec
+		if dbType == "postgresql" && len(dec) >= 13 && dec[:13] == "postgresql://" {
+			normalizedExisting = "postgres://" + dec[13:]
+		}
+		if normalizedExisting == normalizedInput {
+			return true
+		}
+	}
+	return false
+}
+
+func IntrospectSchema(dbType, connStr string) ([]map[string]any, error) {
+	switch dbType {
+	case DBTypeMongoDB:
+		client, ctx, cancel, err := nosql_drivers.OpenMongoDB(connStr)
+		if err != nil {
+			return nil, err
+		}
+		defer cancel()
+		defer client.Disconnect(ctx)
+
+		dbName := ""
+		_, _, dbName, err = nosql_drivers.ExtractMongoDBInfo(connStr)
+		if err != nil {
+			return nil, err
+		}
+		return nosql_drivers.GetMongoCollections(client, ctx, dbName)
+	case DBTypeSQLite, DBTypePostgres, DBTypeMySQL:
+		return IntrospectSQLSchema(dbType, connStr)
+	default:
+		return nil, ErrUnsupportedDBType
+	}
+}
+
+// GetTableMetadata returns column metadata for a given table for supported DBs
+func GetTableMetadata(dbType, connStr, tableName string) (any, error) {
+	switch dbType {
+	case DBTypeMongoDB:
+		_, _, dbName, err := nosql_drivers.ExtractMongoDBInfo(connStr)
+		if err != nil {
+			return nil, err
+		}
+		client, ctx, cancel, err := nosql_drivers.OpenMongoDB(connStr)
+		if err != nil {
+			return nil, err
+		}
+		defer cancel()
+		defer client.Disconnect(ctx)
+		return nosql_drivers.GetMongoCollectionMetadata(client, ctx, dbName, tableName)
+	default:
+		return GetSQLTableMetadata(dbType, connStr, tableName)
+	}
+}
+
+// GetAllRecords fetches all records from a table/collection for any supported DB type.
+// For SQL DBs, returns []map[string]interface{} from the table. For MongoDB, returns all documents as []map[string]interface{}.
+// The limit parameter is optional: 0 means no limit (all records).
+func GetAllRecords(dbType, connStr, tableName string, limit int) ([]map[string]interface{}, error) {
+	// Use ExtractDBInfo for all DB types
+	_, _, dbName, err := ExtractDBInfo(dbType, connStr)
 	if err != nil {
 		return nil, err
 	}
-	// Set reasonable pool settings
-	dbConn.SetMaxOpenConns(10)
-	dbConn.SetMaxIdleConns(5)
-	dbConn.SetConnMaxLifetime(30 * time.Minute)
-	return dbConn, nil
-}
-
-// OpenMongoWithPool opens a MongoDB client with pooling settings
-func OpenMongoWithPool(uri string) (*mongo.Client, context.Context, context.CancelFunc, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	clientOpts := options.Client().ApplyURI(uri).SetMaxPoolSize(10)
-	client, err := mongo.Connect(ctx, clientOpts)
-	if err != nil {
-		cancel()
-		return nil, nil, nil, err
+	switch dbType {
+	case DBTypeMongoDB:
+		client, ctx, cancel, err := nosql_drivers.OpenMongoDB(connStr)
+		if err != nil {
+			return nil, err
+		}
+		defer cancel()
+		defer client.Disconnect(ctx)
+		var lim int64 = 0
+		if limit > 0 {
+			lim = int64(limit)
+		}
+		return nosql_drivers.GetAllRecords(client, ctx, dbName, tableName, lim)
+	case DBTypeSQLite, DBTypePostgres, DBTypeMySQL:
+		// For SQL, use the SQLGetAllRecords dispatcher
+		return SQLGetAllRecords(dbType, connStr, tableName, limit)
+	default:
+		return nil, ErrUnsupportedDBType
 	}
-	return client, ctx, cancel, nil
 }

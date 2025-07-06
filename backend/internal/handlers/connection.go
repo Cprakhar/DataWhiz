@@ -1,12 +1,10 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
-	"datawhiz/internal/db"
-	dbdrivers "datawhiz/internal/db_drivers"
+	db "datawhiz/internal/db"
 	"datawhiz/internal/models"
 	utils "datawhiz/internal/utils"
 
@@ -48,8 +46,8 @@ func ConnectDBHandler(c *gin.Context) {
 		return
 	}
 	// Validate connection before saving using modular driver
-	if err := dbdrivers.PingConnection(req.DBType, req.ConnString); err != nil {
-		if err == dbdrivers.ErrUnsupportedDBType {
+	if err := db.PingConnection(req.DBType, req.ConnString); err != nil {
+		if err == db.ErrUnsupportedDBType {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported DB type"})
 		} else {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid connection string"})
@@ -63,27 +61,16 @@ func ConnectDBHandler(c *gin.Context) {
 		return
 	}
 
-	// Check for duplicate (same user, same db_type, same decrypted conn_string),
-	// and treat postgresql:// and postgres:// as equivalent for PostgreSQL
-	if isDuplicateConnection(userID, req.DBType, req.ConnString) {
+	// Check for duplicate (same user, same db_type, same decrypted conn_string)
+	if db.IsDuplicateConnection(userID, req.DBType, req.ConnString) {
 		c.JSON(http.StatusConflict, gin.H{"error": "Duplicate connection: this connection string already exists for this user and database type."})
 		return
 	}
 
 	// Extract host, port, and database name for supported DB types using db_drivers
-	var host string
-	var port int
-	var database string
-	switch req.DBType {
-	case "postgresql":
-		host, port, database = dbdrivers.ExtractPostgresInfo(req.ConnString)
-	case "mysql":
-		host, port, database = dbdrivers.ExtractMySQLInfo(req.ConnString)
-	case "sqlite":
-		database = dbdrivers.ExtractSQLiteFile(req.ConnString)
-	case "mongodb":
-		// Use exported version for MongoDB extraction
-		database = dbdrivers.ExtractMongoDBName(req.ConnString)
+	host, port, database, err := db.ExtractDBInfo(req.DBType, req.ConnString)
+	if err != nil {
+		//TODO: 
 	}
 
 	conn := models.Connection{
@@ -103,32 +90,6 @@ func ConnectDBHandler(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"connection_id": conn.ID})
 }
 
-// isDuplicateConnection checks for duplicate DB connections for a user
-func isDuplicateConnection(userID uint, dbType, connStr string) bool {
-	var existing []models.Connection
-	if err := db.DB.Where("user_id = ? AND db_type = ?", userID, dbType).Find(&existing).Error; err != nil {
-		return false
-	}
-	normalizedInput := connStr
-	if dbType == "postgresql" && len(connStr) >= 13 && connStr[:13] == "postgresql://" {
-		normalizedInput = "postgres://" + connStr[13:]
-	}
-	for _, ex := range existing {
-		dec, derr := db.Decrypt(ex.ConnString)
-		if derr != nil {
-			continue
-		}
-		normalizedExisting := dec
-		if dbType == "postgresql" && len(dec) >= 13 && dec[:13] == "postgresql://" {
-			normalizedExisting = "postgres://" + dec[13:]
-		}
-		if normalizedExisting == normalizedInput {
-			return true
-		}
-	}
-	return false
-}
-
 // TestDBHandler validates a connection string but does NOT persist it
 func TestDBHandler(c *gin.Context) {
 	var req ConnectRequest
@@ -137,8 +98,8 @@ func TestDBHandler(c *gin.Context) {
 		return
 	}
 	// Validate connection only, do not save, using modular driver
-	if err := dbdrivers.PingConnection(req.DBType, req.ConnString); err != nil {
-		if err == dbdrivers.ErrUnsupportedDBType {
+	if err := db.PingConnection(req.DBType, req.ConnString); err != nil {
+		if err == db.ErrUnsupportedDBType {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported DB type"})
 		} else {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid connection string"})
@@ -169,7 +130,7 @@ func ListConnectionsHandler(c *gin.Context) {
 			conn.IsConnected = false
 			continue
 		}
-		pingErr := dbdrivers.PingConnection(conn.DBType, connStr)
+		pingErr := db.PingConnection(conn.DBType, connStr)
 		if pingErr == nil {
 			conn.IsConnected = true
 			now := time.Now()
@@ -194,38 +155,4 @@ func DisconnectDBHandler(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Connection deleted"})
-}
-
-func SchemaIntrospectionHandler(c *gin.Context) {
-	connID := c.Param("connection_id")
-	userID, ok := getUserIDFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or missing token"})
-		return
-	}
-	cacheKey := fmt.Sprintf("schema:%d:%s", userID, connID)
-	if cached, found := schemaCache.Get(cacheKey); found {
-		c.JSON(http.StatusOK, cached)
-		return
-	}
-	var conn models.Connection
-	if err := db.DB.Where("id = ? AND user_id = ?", connID, userID).First(&conn).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Connection not found"})
-		return
-	}
-	connStr, err := db.Decrypt(conn.ConnString)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decrypt connection string"})
-		return
-	}
-	// Use driver-agnostic introspection function
-	tables, err := dbdrivers.IntrospectSchema(conn.DBType, connStr)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	if tables != nil {
-		schemaCache.Set(cacheKey, gin.H{"tables": tables}, 5*time.Minute)
-	}
-	c.JSON(http.StatusOK, gin.H{"tables": tables})
 }

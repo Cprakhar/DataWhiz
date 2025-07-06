@@ -1,8 +1,7 @@
 package handlers
 
 import (
-	"datawhiz/internal/db"
-	"datawhiz/internal/db_drivers"
+	db "datawhiz/internal/db"
 	"datawhiz/internal/models"
 	"net/http"
 
@@ -27,8 +26,8 @@ func GetTablesHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decrypt connection string"})
 		return
 	}
-	// Use db_drivers.IntrospectSchema to get table names, then fetch metadata for each
-	tablesList, err := db_drivers.IntrospectSchema(conn.DBType, connStr)
+	// Use db.IntrospectSchema to get table names, then fetch metadata for each
+	tablesList, err := db.IntrospectSchema(conn.DBType, connStr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -39,7 +38,7 @@ func GetTablesHandler(c *gin.Context) {
 		if !ok {
 			continue
 		}
-		columns, err := db_drivers.GetTableMetadata(conn.DBType, connStr, tableName)
+		columns, err := db.GetTableMetadata(conn.DBType, connStr, tableName)
 		if err != nil {
 			columns = nil
 		}
@@ -70,9 +69,8 @@ func GetTableRecordsHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decrypt connection string"})
 		return
 	}
-	// Use db_drivers.ExecuteQuery to fetch all records from the table
-	query := "SELECT * FROM " + tableName
-	result, err := db_drivers.ExecuteQuery(conn.DBType, connStr, query)
+	// Use db.GetAllRecords to fetch all records from the table
+	result, err := db.GetAllRecords(conn.DBType, connStr, tableName, 0)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
