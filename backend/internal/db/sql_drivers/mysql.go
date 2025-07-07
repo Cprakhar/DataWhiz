@@ -2,11 +2,11 @@ package sql_drivers
 
 import (
 	"database/sql"
+	"datawhiz/internal/models"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
-	"datawhiz/internal/models"
 )
 
 // ValidateMySQL validates a MySQL connection string by opening and pinging the DB
@@ -82,48 +82,46 @@ func GetMySQLTableMetadata(dbConn *sql.DB, tableName string) ([]models.ColumnMet
 	}
 	defer colRows.Close()
 
-	// Collect unique columns
-	uniqueCols := map[string]bool{}
-	idxRows, err := dbConn.Query("SHOW INDEX FROM " + tableName)
-	if err == nil {
-		defer idxRows.Close()
-		for idxRows.Next() {
-			var (
-				table, nonUnique, keyName, seqInIndex, colName, collation, cardinality, subPart, packed, null, indexType, comment, indexComment sql.NullString
-			)
-			// SHOW INDEX: Table, Non_unique, Key_name, Seq_in_index, Column_name, Collation, Cardinality, Sub_part, Packed, Null, Index_type, Comment, Index_comment
-			err := idxRows.Scan(&table, &nonUnique, &keyName, &seqInIndex, &colName, &collation, &cardinality, &subPart, &packed, &null, &indexType, &comment, &indexComment)
-			if err == nil && nonUnique.String == "0" {
-				uniqueCols[colName.String] = true
-			}
-		}
-	}
-
-	// Collect primary key columns
+	// Collect primary, unique, and foreign key columns using information_schema
 	pkCols := map[string]bool{}
-	pkRows, err := dbConn.Query("SHOW KEYS FROM " + tableName + " WHERE Key_name = 'PRIMARY'")
+	uniqueCols := map[string]bool{}
+	fkCols := map[string]bool{}
+
+	// Primary keys
+	pkQuery := `SELECT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_NAME = 'PRIMARY'`
+	pkRows, err := dbConn.Query(pkQuery, tableName)
 	if err == nil {
 		defer pkRows.Close()
 		for pkRows.Next() {
-			var (
-				table, nonUnique, keyName, seqInIndex, colName, collation, cardinality, subPart, packed, null, indexType, comment, indexComment sql.NullString
-			)
-			err := pkRows.Scan(&table, &nonUnique, &keyName, &seqInIndex, &colName, &collation, &cardinality, &subPart, &packed, &null, &indexType, &comment, &indexComment)
-			if err == nil {
-				pkCols[colName.String] = true
+			var colName string
+			if err := pkRows.Scan(&colName); err == nil {
+				pkCols[colName] = true
 			}
 		}
 	}
 
-	// Collect foreign key columns
-	fkCols := map[string]bool{}
-	fkRows, err := dbConn.Query("SELECT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND REFERENCED_TABLE_NAME IS NOT NULL", tableName)
+	// Unique keys (excluding PK)
+	uqQuery := `SELECT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_NAME != 'PRIMARY' AND CONSTRAINT_NAME IN (SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_TYPE = 'UNIQUE')`
+	uqRows, err := dbConn.Query(uqQuery, tableName, tableName)
+	if err == nil {
+		defer uqRows.Close()
+		for uqRows.Next() {
+			var colName string
+			if err := uqRows.Scan(&colName); err == nil {
+				uniqueCols[colName] = true
+			}
+		}
+	}
+
+	// Foreign keys
+	fkQuery := `SELECT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND REFERENCED_TABLE_NAME IS NOT NULL`
+	fkRows, err := dbConn.Query(fkQuery, tableName)
 	if err == nil {
 		defer fkRows.Close()
 		for fkRows.Next() {
-			var fkCol string
-			if err := fkRows.Scan(&fkCol); err == nil {
-				fkCols[fkCol] = true
+			var colName string
+			if err := fkRows.Scan(&colName); err == nil {
+				fkCols[colName] = true
 			}
 		}
 	}

@@ -9,8 +9,11 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strconv"
+	"time"
 
 	"datawhiz/internal/db/nosql_drivers"
+	"datawhiz/internal/utils"
 
 	_ "github.com/mattn/go-sqlite3"
 	"gorm.io/driver/sqlite"
@@ -29,6 +32,13 @@ const (
 	DBTypeMySQL    = "mysql"
 	DBTypeMongoDB  = "mongodb"
 )
+
+// --- Use shared cache utility for records ---
+var recordCache = utils.NewCache()
+
+func cacheKey(dbType, connStr, tableName string, limit int) string {
+	return dbType + ":" + connStr + ":" + tableName + ":" + strconv.Itoa(limit)
+}
 
 // ErrUnsupportedDBType is returned when an unsupported DB type is used
 var ErrUnsupportedDBType = errors.New("unsupported database type")
@@ -186,6 +196,16 @@ func GetAllRecords(dbType, connStr, tableName string, limit int) ([]map[string]i
 	if err != nil {
 		return nil, err
 	}
+
+	// --- CACHE LOGIC ---
+	key := cacheKey(dbType, connStr, tableName, limit)
+	if cached, found := recordCache.Get(key); found {
+		if records, ok := cached.([]map[string]interface{}); ok {
+			return records, nil
+		}
+	}
+
+	var records []map[string]interface{}
 	switch dbType {
 	case DBTypeMongoDB:
 		client, ctx, cancel, err := nosql_drivers.OpenMongoDB(connStr)
@@ -198,11 +218,20 @@ func GetAllRecords(dbType, connStr, tableName string, limit int) ([]map[string]i
 		if limit > 0 {
 			lim = int64(limit)
 		}
-		return nosql_drivers.GetAllRecords(client, ctx, dbName, tableName, lim)
+		records, err = nosql_drivers.GetAllRecords(client, ctx, dbName, tableName, lim)
+		if err != nil {
+			return nil, err
+		}
 	case DBTypeSQLite, DBTypePostgres, DBTypeMySQL:
-		// For SQL, use the SQLGetAllRecords dispatcher
-		return SQLGetAllRecords(dbType, connStr, tableName, limit)
+		records, err = SQLGetAllRecords(dbType, connStr, tableName, limit)
+		if err != nil {
+			return nil, err
+		}
 	default:
 		return nil, ErrUnsupportedDBType
 	}
+
+	// Store in cache with TTL 30 min
+	recordCache.Set(key, records, 30*time.Minute)
+	return records, nil
 }

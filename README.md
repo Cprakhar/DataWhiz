@@ -25,9 +25,9 @@ A unified database management interface with natural language (LLM) support.
 - **Database Connections**
   - Add new database connections (PostgreSQL, MongoDB, MySQL, SQLite)
   - Test connection before saving (no DB entry created on test)
-  - Prevent duplicate connections (backend-enforced)
+  - Prevent duplicate connections (backend-enforced, protocol normalization for PostgreSQL)
   - Delete (remove) saved connections
-  - View connection status (isConnected, lastConnected, etc.)
+  - View connection status (isConnected, lastConnected, host, port, database, etc.)
 
 - Natural language query assistant (Gemini LLM-powered)
 - Query history, saved queries, and user profiles (avatar, name)
@@ -71,8 +71,9 @@ DataWhiz supports connecting to the following database types:
 - **PostgreSQL**
   - Connection string (manual):
     `postgresql://user:password@host:port/database` or `postgres://user:password@host:port/database`
-    - The app treats both protocols as equivalent and prevents duplicate connections with different protocols.
+    - The app treats both protocols as equivalent and prevents duplicate connections with different protocols (protocol normalization in backend and frontend).
     - For cloud DBs, `sslmode=require` is automatically appended if not present.
+    - Host, port, and database are always extracted and shown in the UI for all connections.
 - **MySQL**
   - Connection string (manual):
     `user:password@tcp(host:port)/database`
@@ -86,7 +87,7 @@ DataWhiz supports connecting to the following database types:
 
 - You can add, test, and delete connections for all four types.
 - The UI and backend both prevent duplicate connections (including protocol normalization for PostgreSQL).
-- All connection status, icons, and metadata are shown in the dashboard and sidebar.
+- All connection status, icons, and metadata (host, port, database, isConnected, lastConnected) are shown in the dashboard and sidebar.
 
 ## Documentation
 - [API Reference](backend/docs/api.md)

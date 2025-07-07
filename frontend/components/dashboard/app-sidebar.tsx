@@ -13,7 +13,8 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar"
-import { useDatabase, getDatabaseImage } from "@/components/database/database-provider"
+import { useDatabase } from "@/components/database/database-provider"
+import { getDatabaseImage } from "@/components/database/utils"
 import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Database, Plus, Bot, History, Settings, Home, TableIcon } from "lucide-react"

@@ -6,7 +6,6 @@ import (
 
 	db "datawhiz/internal/db"
 	"datawhiz/internal/models"
-	utils "datawhiz/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
@@ -18,8 +17,6 @@ type ConnectRequest struct {
 	ConnString string `json:"conn_string" binding:"required"`
 	Name       string `json:"name"`
 }
-
-var schemaCache = utils.NewCache()
 
 // getUserIDFromContext now simply reads the user_id set by the AuthRequired middleware
 func getUserIDFromContext(c *gin.Context) (uint, bool) {
@@ -68,9 +65,10 @@ func ConnectDBHandler(c *gin.Context) {
 	}
 
 	// Extract host, port, and database name for supported DB types using db_drivers
-	host, port, database, err := db.ExtractDBInfo(req.DBType, req.ConnString)
-	if err != nil {
-		//TODO: 
+	host, port, database, extractErr := db.ExtractDBInfo(req.DBType, req.ConnString)
+	if extractErr != nil {
+		// Optionally log extractErr for debugging
+		// You may want to return an error here if these fields are required
 	}
 
 	conn := models.Connection{
@@ -87,7 +85,7 @@ func ConnectDBHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save connection"})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"connection_id": conn.ID})
+	c.JSON(http.StatusCreated, gin.H{"connection_id": conn.ID, "host": host, "port": port, "database": database})
 }
 
 // TestDBHandler validates a connection string but does NOT persist it
@@ -121,24 +119,35 @@ func ListConnectionsHandler(c *gin.Context) {
 		return
 	}
 
-	// For each connection, try to connect and set isConnected and lastConnected
+	// For each connection, try to connect and set isConnected, lastConnected, and always extract host/port/database
 	for i := range conns {
 		conn := &conns[i]
 		// Decrypt connection string
 		connStr, err := db.Decrypt(conn.ConnString)
 		if err != nil {
 			conn.IsConnected = false
+			conn.LastConnected = nil
 			continue
 		}
-		pingErr := db.PingConnection(conn.DBType, connStr)
-		if pingErr == nil {
-			conn.IsConnected = true
-			now := time.Now()
-			conn.LastConnected = &now
-		} else {
+		// Extract host, port, database
+		host, port, database, err := db.ExtractDBInfo(conn.DBType, connStr)
+		if err != nil {
 			conn.IsConnected = false
 			conn.LastConnected = nil
+			continue
 		}
+		conn.Host = host
+		conn.Port = port
+		conn.Database = database
+		// Ping connection
+		if err := db.PingConnection(conn.DBType, connStr); err != nil {
+			conn.IsConnected = false
+			conn.LastConnected = nil
+			continue
+		}
+		conn.IsConnected = true
+		now := time.Now()
+		conn.LastConnected = &now
 	}
 	c.JSON(http.StatusOK, conns)
 }

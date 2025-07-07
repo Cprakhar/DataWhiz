@@ -34,3 +34,10 @@ func (c *Cache) Get(key string) (interface{}, bool) {
 	}
 	return item.value, true
 }
+
+// Delete removes a key from the cache.
+func (c *Cache) Delete(key string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.data, key)
+}

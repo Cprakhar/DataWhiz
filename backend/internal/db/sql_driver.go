@@ -1,9 +1,9 @@
 package db_drivers
 
 import (
+	"database/sql"
 	db "datawhiz/internal/db/sql_drivers"
 	"fmt"
-	"database/sql"
 )
 
 // GetTableMetadata returns column metadata for a given table for supported DBs
@@ -92,7 +92,7 @@ func IntrospectSQLSchema(dbType, connStr string) ([]map[string]any, error) {
 func ExtractSQLDBInfo(dbType, connStr string) (host string, port int, database string, err error) {
 	switch dbType {
 	case DBTypePostgres:
-		db.ExtractPostgresInfo(connStr)
+		return db.ExtractPostgresInfo(connStr)
 	case DBTypeMySQL:
 		return db.ExtractMySQLInfo(connStr)
 	case DBTypeSQLite:
@@ -101,7 +101,6 @@ func ExtractSQLDBInfo(dbType, connStr string) (host string, port int, database s
 	default:
 		return "", 0, "", ErrUnsupportedDBType
 	}
-	return
 }
 
 // FetchAllRecords fetches all rows from a table. Returns []map[string]interface{}.
@@ -145,7 +144,6 @@ func FetchAllRecords(dbConn *sql.DB, tableName string) ([]map[string]interface{}
 	}
 	return results, nil
 }
-
 
 // SQLGetAllRecords fetches all records from a SQL table as []map[string]interface{}.
 // Requires dbType, connStr, tableName, and rowCount (limit). Returns []map[string]interface{}.

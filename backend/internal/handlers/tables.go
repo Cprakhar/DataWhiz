@@ -3,10 +3,16 @@ package handlers
 import (
 	db "datawhiz/internal/db"
 	"datawhiz/internal/models"
+	"datawhiz/internal/utils"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
+
+// Table metadata cache (per connection+table)
+var tableMetadataCache = utils.NewCache()
 
 // GetTablesHandler returns the list of tables and columns for a given connection
 func GetTablesHandler(c *gin.Context) {
@@ -33,19 +39,34 @@ func GetTablesHandler(c *gin.Context) {
 		return
 	}
 	var tables []map[string]interface{}
+	var wg sync.WaitGroup
+	tablesCh := make(chan map[string]interface{}, len(tablesList))
 	for _, t := range tablesList {
 		tableName, ok := t["name"].(string)
 		if !ok {
 			continue
 		}
-		columns, err := db.GetTableMetadata(conn.DBType, connStr, tableName)
-		if err != nil {
-			columns = nil
-		}
-		tables = append(tables, map[string]interface{}{
-			"name":    tableName,
-			"columns": columns,
-		})
+		wg.Add(1)
+		go func(tableName string) {
+			defer wg.Done()
+			cacheKey := conn.DBType + ":" + connStr + ":" + tableName
+			if cached, found := tableMetadataCache.Get(cacheKey); found {
+				tablesCh <- map[string]interface{}{"name": tableName, "columns": cached}
+				return
+			}
+			columns, err := db.GetTableMetadata(conn.DBType, connStr, tableName)
+			if err != nil {
+				tablesCh <- map[string]interface{}{"name": tableName, "columns": nil}
+				return
+			}
+			tableMetadataCache.Set(cacheKey, columns, 30*time.Minute)
+			tablesCh <- map[string]interface{}{"name": tableName, "columns": columns}
+		}(tableName)
+	}
+	wg.Wait()
+	close(tablesCh)
+	for t := range tablesCh {
+		tables = append(tables, t)
 	}
 	c.JSON(http.StatusOK, gin.H{"tables": tables})
 }

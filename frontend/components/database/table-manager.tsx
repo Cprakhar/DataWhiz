@@ -35,7 +35,7 @@ import {
   X,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getDatabaseColor } from "./database-provider"
+import { getDatabaseColor } from "../database/utils"
 import { BulkOperations } from "./bulk-operations"
 import { cn } from "@/lib/utils"
 
@@ -68,9 +68,6 @@ interface EditingCell {
   originalValue: any
 }
 
-
-// ...existing code...
-
 export function TableManager() {
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
   const { activeConnection } = useDatabase()
@@ -84,6 +81,7 @@ export function TableManager() {
       setSelectedTable(null)
       return
     }
+    setSelectedTable(null); // Reset selection immediately on DB change
     const fetchTables = async () => {
       try {
         // Backend endpoint: /api/db/:connection_id/tables
@@ -1086,8 +1084,8 @@ export function TableManager() {
                               <TableRow>
                                 <TableHead>Column</TableHead>
                                 <TableHead>Type</TableHead>
-                                <TableHead>Nullable</TableHead>
-                                <TableHead>Key</TableHead>
+                                <TableHead className="text-center">Nullable</TableHead>
+                                <TableHead className="text-center">Key</TableHead>
                                 <TableHead>Default</TableHead>
                               </TableRow>
                             </TableHeader>
@@ -1096,15 +1094,15 @@ export function TableManager() {
                                 <TableRow key={`${column.name}-${colIdx}`}>
                                   <TableCell className="font-mono font-medium">{column.name}</TableCell>
                                   <TableCell className="font-mono">{column.type}</TableCell>
-                                  <TableCell>
+                                  <TableCell className="text-center">
                                     {column.nullable ? (
-                                      <Check className="h-4 w-4 text-green-600" />
+                                      <Check className="h-4 w-4 text-green-600 mx-auto" />
                                     ) : (
-                                      <X className="h-4 w-4 text-muted-foreground" />
+                                      <X className="h-4 w-4 text-muted-foreground mx-auto" />
                                     )}
                                   </TableCell>
-                                  <TableCell>
-                                    <div className="flex gap-1 items-center">
+                                  <TableCell className="text-center">
+                                    <div className="flex gap-1 items-center justify-center">
                                       {column.primaryKey && (
                                         <Key className="h-4 w-4 text-yellow-600" />
                                       )}
@@ -1112,11 +1110,8 @@ export function TableManager() {
                                         <LinkIcon className="h-4 w-4 text-blue-600" />
                                       )}
                                       {!column.primaryKey && !column.foreignKey && (
-                                        column.unique ? null : (
                                           <X className="h-4 w-4 text-muted-foreground" />
-                                        )
                                       )}
-                                      {column.unique && <Badge variant="outline">UNIQUE</Badge>}
                                     </div>
                                   </TableCell>
                                   <TableCell className="font-mono text-sm">{

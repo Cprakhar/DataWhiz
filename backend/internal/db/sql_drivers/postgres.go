@@ -120,8 +120,6 @@ func GetPostgresTableMetadata(dbConn *sql.DB, tableName string) ([]models.Column
 	return columns, nil
 }
 
-
-
 // GetPostgresTablesAndColumns returns a list of tables and their columns for a PostgreSQL database
 func GetPostgresTablesAndColumns(dbConn *sql.DB) ([]map[string]interface{}, error) {
 	tables := []map[string]interface{}{}
@@ -146,9 +144,13 @@ func GetPostgresTablesAndColumns(dbConn *sql.DB) ([]map[string]interface{}, erro
 
 // Extract host, port, and database name for Postgres connection string
 func ExtractPostgresInfo(connStr string) (host string, port int, database string, err error) {
-	if strings.HasPrefix(connStr, "postgres://") || strings.HasPrefix(connStr, "postgresql://") {
-		u, err := url.Parse(connStr)
-		if err == nil {
+	normStr := connStr
+	if strings.HasPrefix(strings.ToLower(connStr), "postgresql://") {
+		normStr = "postgres://" + connStr[len("postgresql://"):]
+	}
+	if strings.HasPrefix(normStr, "postgres://") {
+		u, parseErr := url.Parse(normStr)
+		if parseErr == nil {
 			host = u.Hostname()
 			portStr := u.Port()
 			if portStr != "" {
