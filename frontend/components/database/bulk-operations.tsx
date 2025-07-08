@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+
 import {
   Dialog,
   DialogContent,
@@ -15,129 +15,46 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Upload, Download, Trash2, AlertTriangle } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
 
-interface BulkOperationsProps {
-  selectedRecords: any[]
-  onBulkDelete: (records: any[]) => void
-  onBulkUpdate: (records: any[], updates: Record<string, any>) => void
-  onImport: (data: any[]) => void
-  onExport: (records: any[]) => void
-}
+export type BulkOperationsProps = {
+  selectedRecords: any[];
+  showBulkDelete: boolean;
+  setShowBulkDelete: (show: boolean) => void;
+  showBulkUpdate: boolean;
+  setShowBulkUpdate: (show: boolean) => void;
+  showImport: boolean;
+  setShowImport: (show: boolean) => void;
+  updateData: string;
+  setUpdateData: (val: string) => void;
+  importData: string;
+  setImportData: (val: string) => void;
+  isProcessing: boolean;
+  progress: number;
+  handleBulkDelete: () => void;
+  handleBulkUpdate: () => void;
+  handleImport: () => void;
+  handleExport: () => void;
+};
 
 export function BulkOperations({
   selectedRecords,
-  onBulkDelete,
-  onBulkUpdate,
-  onImport,
-  onExport,
+  showBulkDelete,
+  setShowBulkDelete,
+  showBulkUpdate,
+  setShowBulkUpdate,
+  showImport,
+  setShowImport,
+  updateData,
+  setUpdateData,
+  importData,
+  setImportData,
+  isProcessing,
+  progress,
+  handleBulkDelete,
+  handleBulkUpdate,
+  handleImport,
+  handleExport,
 }: BulkOperationsProps) {
-  const { toast } = useToast()
-  const [showBulkDelete, setShowBulkDelete] = useState(false)
-  const [showBulkUpdate, setShowBulkUpdate] = useState(false)
-  const [showImport, setShowImport] = useState(false)
-  const [updateData, setUpdateData] = useState("")
-  const [importData, setImportData] = useState("")
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
-
-  const handleBulkDelete = async () => {
-    setIsProcessing(true)
-    setProgress(0)
-
-    // Simulate progress
-    for (let i = 0; i <= 100; i += 10) {
-      setProgress(i)
-      await new Promise((resolve) => setTimeout(resolve, 100))
-    }
-
-    onBulkDelete(selectedRecords)
-    setIsProcessing(false)
-    setShowBulkDelete(false)
-    toast({
-      title: "Success",
-      description: `${selectedRecords.length} records deleted successfully`,
-    })
-  }
-
-  const handleBulkUpdate = async () => {
-    try {
-      const updates = JSON.parse(updateData)
-      setIsProcessing(true)
-      setProgress(0)
-
-      // Simulate progress
-      for (let i = 0; i <= 100; i += 10) {
-        setProgress(i)
-        await new Promise((resolve) => setTimeout(resolve, 100))
-      }
-
-      onBulkUpdate(selectedRecords, updates)
-      setIsProcessing(false)
-      setShowBulkUpdate(false)
-      setUpdateData("")
-      toast({
-        title: "Success",
-        description: `${selectedRecords.length} records updated successfully`,
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Invalid JSON format",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleImport = async () => {
-    try {
-      const data = JSON.parse(importData)
-      if (!Array.isArray(data)) {
-        throw new Error("Data must be an array")
-      }
-
-      setIsProcessing(true)
-      setProgress(0)
-
-      // Simulate progress
-      for (let i = 0; i <= 100; i += 10) {
-        setProgress(i)
-        await new Promise((resolve) => setTimeout(resolve, 100))
-      }
-
-      onImport(data)
-      setIsProcessing(false)
-      setShowImport(false)
-      setImportData("")
-      toast({
-        title: "Success",
-        description: `${data.length} records imported successfully`,
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Invalid JSON format or data structure",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleExport = () => {
-    const dataStr = JSON.stringify(selectedRecords, null, 2)
-    const dataBlob = new Blob([dataStr], { type: "application/json" })
-    const url = URL.createObjectURL(dataBlob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = `export_${new Date().toISOString().split("T")[0]}.json`
-    link.click()
-    URL.revokeObjectURL(url)
-
-    toast({
-      title: "Success",
-      description: `${selectedRecords.length} records exported successfully`,
-    })
-  }
-
   return (
     <div className="flex items-center gap-2">
       {selectedRecords.length > 0 && (
