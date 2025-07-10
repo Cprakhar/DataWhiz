@@ -1,6 +1,6 @@
 "use client"
 
-import { ConnectionManager } from "@/components/database/connection-manager/ConnectionManager"
+import { ConnectionManager } from "@/app/dashboard/connections/_connection-manager/ConnectionManager"
 
 export default function ConnectionsPage() {
   return <ConnectionManager />

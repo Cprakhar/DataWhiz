@@ -1,4 +1,4 @@
-import { TableManager } from "@/components/database/table-manager"
+import { TableManager } from "@/app/dashboard/tables/_table-manager/table-manager"
 
 export default function TablesPage() {
   return <TableManager />

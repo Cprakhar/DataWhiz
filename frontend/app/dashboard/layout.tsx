@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { ProtectedRoute } from "@/components/auth/protected-route"
+import { ProtectedRoute } from "@/app/auth/ProtectedRoute"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"

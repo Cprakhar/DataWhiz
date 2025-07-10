@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useAuth } from "@/components/auth/auth-provider"
+import { useAuth } from "@/app/auth/AuthProvider"
 import { useTheme } from "next-themes"
 import { Moon, Sun, LogOut, User, Settings } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
