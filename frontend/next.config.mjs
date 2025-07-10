@@ -14,11 +14,11 @@ const nextConfig = {
     return [
       {
         source: '/api/auth/:provider',
-        destination: `${process.env.BACKEND_URL || 'http://localhost:8080'}/auth/:provider`,
+        destination: `${process.env.INTERNAL_BACKEND_URL || 'http://localhost:8080'}/auth/:provider`,
       },
       {
         source: '/api/auth/:provider/callback',
-        destination: `${process.env.BACKEND_URL || 'http://localhost:8080'}/auth/:provider/callback`,
+        destination: `${process.env.INTERNAL_BACKEND_URL || 'http://localhost:8080'}/auth/:provider/callback`,
       },
     ]
   },

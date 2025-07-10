@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { History, Search, Play, Edit, Trash2, MoreHorizontal, Clock } from "lucide-react"
-import { useDatabase, getDatabaseColor } from "@/components/database/database-provider"
+import { useDatabase } from "@/components/database/database-provider"
+import { getDatabaseColor } from "@/components/database/utils"
 
 interface QueryHistory {
   id: string
