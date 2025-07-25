@@ -11,7 +11,7 @@ func main() {
 	if err != nil {
 		panic(err) // Handle error appropriately in production code
 	}
-
+	
 	server := router.NewRouter(config)
 	server.Run(":" + config.Env.Port) // Use the port from the configuration
 }

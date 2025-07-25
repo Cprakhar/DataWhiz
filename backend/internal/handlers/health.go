@@ -1,19 +1,13 @@
 package handlers
 
 import (
-	"github.com/cprakhar/datawhiz/config"
+	"net/http"
+
+	"github.com/cprakhar/datawhiz/utils/response"
 	"github.com/gin-gonic/gin"
 )
 
 
-func HandleHealthCheck(cfg *config.Config) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Here you can add logic to check the health of your application
-		// For example, checking database connectivity, etc.
-		
-		c.JSON(200, gin.H{
-			"message": "Health check successful",
-			"status": "healthy",
-		})
-	}
+func (h *Handler) HandleHealthCheck (ctx *gin.Context) {
+	response.JSON(ctx, http.StatusOK, "Server is running", nil)
 }

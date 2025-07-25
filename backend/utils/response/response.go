@@ -57,6 +57,7 @@ func BadRequest(c *gin.Context, msg string, err interface{}) {
 // 401 Unauthorized
 func Unauthorized(c *gin.Context, msg string) {
 	Error(c, http.StatusUnauthorized, msg, nil)
+	c.Abort()
 }
 
 // 500 Internal Server Error
