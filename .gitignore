@@ -3,4 +3,5 @@ next-env.d.ts
 .next/
 *.env
 db_schema.md
+react-toastify-docs.md
 .entrypoint.sh

@@ -58,6 +58,7 @@ Other scripts: `build`, `start`, `lint` (see `package.json`).
   - Variables/functions: `camelCase`.
   - Types/interfaces: `PascalCase`.
   - CSS classes (Tailwind): `kebab-case`.
+  - Icons (Lucide React): Use `lucide-react` package for icons, e.g., `<IconName />`.
 
 ---
 
