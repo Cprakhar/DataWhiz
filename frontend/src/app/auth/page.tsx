@@ -6,9 +6,11 @@ import { useState } from "react";
 
 export default function AuthPage() {
     const [mode, setMode] = useState<"login" | "register">("login")
-    const {handleChange, handleSubmit, errors, error, form, loading} = useAuthForm(mode)
+    const {handleGithubSignIn, handleGoogleSignIn, handleChange, handleSubmit, errors, error, form, loading} = useAuthForm(mode)
     return (
         <AuthForm
+            handleGithubSignIn={handleGithubSignIn}
+            handleGoogleSignIn={handleGoogleSignIn}
             mode={mode}
             form={form}
             fieldErrors={errors}

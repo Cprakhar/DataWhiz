@@ -10,6 +10,7 @@ import (
 	"github.com/cprakhar/datawhiz/utils/password"
 	"github.com/cprakhar/datawhiz/utils/response"
 	"github.com/cprakhar/datawhiz/utils/secure"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
 
@@ -110,4 +111,14 @@ func (h *Handler) HandleLogin (ctx *gin.Context) {
 		OAuthProvider: dbUser.OAuthProvider,
 	}
 	response.JSON(ctx, http.StatusOK, "User logged in successfully", safeUser)
+}
+
+func (h *Handler) HandleLogout(ctx *gin.Context) {
+	session := sessions.Default(ctx)
+	session.Clear()
+	if err := session.Save(); err != nil {
+		response.InternalError(ctx, err)
+		return
+	}
+	response.OK(ctx, "User logged out successfully")
 }

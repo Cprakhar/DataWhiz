@@ -16,9 +16,14 @@ type Env struct {
 	SupabaseURL        string        `env:"SUPABASE_URL" envDefault:""`
 	SupabaseKey        string        `env:"SUPABASE_KEY" envDefault:""`
 	GroqAPIKey         string        `env:"GROQ_API_KEY" envDefault:""`
-	SessionsSecret     string        `env:"SESSIONS_SECRET" envDefault:"sessions-secret-key"`
+	SessionSecret      string        `env:"SESSION_SECRET" envDefault:"sessions-secret-key"`
 	SessionMaxAge      time.Duration `env:"SESSION_MAX_AGE" envDefault:"24h"`
-	SessionsSecure     bool          `env:"SESSIONS_SECURE" envDefault:"false"`
+	SessionSecure      bool          `env:"SESSION_SECURE" envDefault:"false"`
+	MaxOpenConns       int           `env:"MAX_OPEN_CONNS" envDefault:"50"`
+	MaxIdleConns       int           `env:"MAX_IDLE_CONNS" envDefault:"10"`
+	ConnMaxLifetime    time.Duration `env:"CONN_MAX_LIFETIME" envDefault:"30m"`
+	ConnMaxIdleTime    time.Duration `env:"CONN_MAX_IDLE_TIME" envDefault:"5m"`
+	EncryptionKey      string        `env:"ENCRYPTION_KEY" envDefault:""`
 }
 
 func LoadEnv() (*Env, error) {

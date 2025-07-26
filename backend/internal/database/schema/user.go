@@ -8,8 +8,8 @@ type User struct {
 	Password      string    `json:"password_hash"`
 	Email         string    `json:"email" binding:"required,email"`
 	AvatarURL     string    `json:"avatar_url,omitempty"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	CreatedAt     *time.Time `json:"created_at,omitempty"`
+	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
 	OAuthProvider string    `json:"oauth_provider,omitempty"`
 	OAuthID       string    `json:"oauth_id,omitempty"`
 }

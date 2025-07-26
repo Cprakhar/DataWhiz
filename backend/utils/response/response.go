@@ -64,3 +64,8 @@ func Unauthorized(c *gin.Context, msg string) {
 func InternalError(c *gin.Context, err interface{}) {
 	Error(c, http.StatusInternalServerError, "Something went wrong", err)
 }
+
+// 404 Not Found
+func NotFound(c *gin.Context, msg string) {
+    Error(c, http.StatusNotFound, msg, nil)
+}

@@ -21,6 +21,14 @@ export default function useAuthForm(mode: "login" | "register") {
     const [loading, setLoading] = useState(false)
     // const router = useRouter();
 
+    const handleGoogleSignIn = useCallback(() => {
+        window.location.href = "/api/auth/oauth/signin?provider=google"
+    }, [])
+
+    const handleGithubSignIn = useCallback(() => {
+        window.location.href = "/api/auth/oauth/signin?provider=github"
+    }, [])
+
     const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
         setErrors(prev => ({ ...prev, [e.target.name]: "" }));
@@ -110,6 +118,8 @@ export default function useAuthForm(mode: "login" | "register") {
     );
 
     return {
+        handleGoogleSignIn,
+        handleGithubSignIn,
         handleChange,
         handleSubmit,
         errors,

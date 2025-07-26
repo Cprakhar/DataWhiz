@@ -4,8 +4,8 @@ import Button from "@/components/ui/Button";
 import Image from "next/image";
 
 type OAuthProps = {
-  onGoogle?: () => void;
-  onGithub?: () => void;
+  onGoogle: () => void;
+  onGithub: () => void;
 };
 
 export default function OAuth({ onGoogle, onGithub }: OAuthProps) {

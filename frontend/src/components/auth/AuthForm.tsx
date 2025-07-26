@@ -7,6 +7,8 @@ import { AuthFormData } from "@/hooks/useAuthForm";
 import { FieldErrors } from "@/types/auth";
 
 type AuthFormProps = {
+  handleGithubSignIn: () => void,
+  handleGoogleSignIn: () => void,
   handleChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   handleSwitch: Dispatch<SetStateAction<"login" | "register">>
   onSubmit: (e: React.FormEvent) => void
@@ -19,7 +21,9 @@ type AuthFormProps = {
 
 export default function AuthForm(
     { mode,
-      form, 
+      form,
+      handleGithubSignIn,
+      handleGoogleSignIn, 
       onSubmit, 
       handleSwitch, 
       handleChange, 
@@ -32,7 +36,7 @@ export default function AuthForm(
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
     <div className="max-w-md w-full mx-auto p-8 rounded-lg shadow-lg bg-white">
-      <OAuth />
+      <OAuth onGithub={handleGithubSignIn} onGoogle={handleGoogleSignIn}/>
       <div className="flex items-center my-6">
         <div className="flex-grow border-t border-gray-200" />
         <span className="mx-4 text-gray-400 text-sm">OR CONTINUE WITH EMAIL</span>
