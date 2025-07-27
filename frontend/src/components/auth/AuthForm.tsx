@@ -14,7 +14,6 @@ type AuthFormProps = {
   onSubmit: (e: React.FormEvent) => void
   mode: "login" | "register";
   loading: boolean;
-  error?: string;
   fieldErrors: FieldErrors
   form: AuthFormData
 };
@@ -29,7 +28,7 @@ export default function AuthForm(
       handleChange, 
       loading,
       fieldErrors, 
-      error }: AuthFormProps) {
+    }: AuthFormProps) {
   const [showPassword, setShowPassword] = useState(false)
 
 
@@ -89,7 +88,6 @@ export default function AuthForm(
         />
         {fieldErrors.password && <p className="text-red-500 text-xs">{fieldErrors.password}</p>}
         </>
-        {error && <div className="text-red-500 text-sm">{error}</div>}
         <Button type="submit" className="bg-blue-600 text-white" disabled={loading}>
           {loading ? (mode === "register" ? "Registering..." : "Logging in...") : mode === "register" ? "Register" : "Login"}
         </Button>

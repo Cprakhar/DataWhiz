@@ -2,7 +2,9 @@ import { loginSchema, registerSchema } from "@/schema/authSchema"
 import z from "zod"
 import React, { useCallback, useState } from "react";
 import { FieldErrors } from "@/types/auth";
-import { toastPromise } from "@/components/ui/Toast";
+import { DefaultToastOptions, showToast } from "@/components/ui/Toast";
+import { Login, Register, Google, GitHub } from "@/api/auth/auth";
+import { AppError } from "@/types/error";
 
 export interface AuthFormData {
     name?: string;
@@ -17,17 +19,7 @@ export default function useAuthForm(mode: "login" | "register") {
         password: "",
     });
     const [errors, setErrors] = useState<FieldErrors>({});
-    const [error, setError] = useState<string | undefined>();
     const [loading, setLoading] = useState(false)
-    // const router = useRouter();
-
-    const handleGoogleSignIn = useCallback(() => {
-        window.location.href = "/api/auth/oauth/signin?provider=google"
-    }, [])
-
-    const handleGithubSignIn = useCallback(() => {
-        window.location.href = "/api/auth/oauth/signin?provider=github"
-    }, [])
 
     const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -52,78 +44,43 @@ export default function useAuthForm(mode: "login" | "register") {
         return true;
     }, [form, mode]);
 
-    const handleLogin = useCallback(async () => {
-        const res = await fetch('/api/auth/login', {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-                email: form.email,
-                password: form.password
-            })
-        });
-        if (!res.ok) {
-            const errBody = await res.json();
-            throw new Error(errBody.error || "Login failed");
-        }
-        return res.json();
-    }, [form])
-
-    const handleRegister = useCallback(async () => {
-        const res = await fetch('/api/auth/register', {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-                name: form.name,
-                email: form.email,
-                password: form.password
-            })
-        });
-        if (!res.ok) {
-            const errBody = await res.json();
-            throw new Error(errBody.error || "Registration failed");
-        }
-        return res.json();
-    }, [form])
-
     const handleSubmit = useCallback(
         async (e: React.FormEvent) => {
             e.preventDefault();
             if (!validate()) return;
-            setError(undefined);
             setLoading(true)
-            const promise = mode === "login" ? handleLogin() : handleRegister();
-            toastPromise(
-                promise,
-                {
-                    pending: mode === "login" ? "Logging in..." : "Registering...",
-                    success: mode === "login" ? "Login successful!" : "Registration successful!",
-                    error: mode === "login" ? "Login failed." : "Registration failed.",
-                }
-            );
+            const promise = mode === "login" ? Login(form) : Register(form);
+            const toastId = showToast.loading(mode === "login" ? "Logging in..." : "Registering...");
             try {
                 await promise;
-            } catch (err: unknown) {
-                if (err instanceof Error) {
-                    setError(err.message);
-                } else {
-                    setError("An unexpected error occurred.");
+                showToast.update(toastId, {...DefaultToastOptions,
+                    render: mode === "login" ? "Login successful!" : "Registration successful!",
+                    type: "success",
+                    isLoading: false
+                });
+            } catch (err) {
+                let errorMsg = "An unexpected error occurred.";
+                if (err && typeof err === "object" && "message" in err) {
+                    errorMsg = (err as AppError).message
                 }
+                showToast.update(toastId, {...DefaultToastOptions,
+                    render: errorMsg,
+                    type: "error",
+                    isLoading: false
+                });
             } finally {
-                setLoading(false)
+                setLoading(false);
             }
         },
-        [mode, validate, handleLogin, handleRegister]
+        [mode, validate, form]
     );
 
     return {
-        handleGoogleSignIn,
-        handleGithubSignIn,
+        Google,
+        GitHub,
         handleChange,
         handleSubmit,
         errors,
-        error,
         form,
         loading
     };

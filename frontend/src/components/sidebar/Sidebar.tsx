@@ -1,56 +1,37 @@
-'use client'
-
-import React, { useState } from "react";
 import { useUserInfo } from "@/hooks/useUserInfo";
-import SidebarTab from "@/components/sidebar/SidebarTab";
-import Avatar from "@/components/ui/Avatar";
-import { LogOut } from "lucide-react";
+import { UserDetails } from "@/types/user";
+import { Database } from "lucide-react";
+import SidebarFooter from "./SidebarFooter";
+import SidebarNavigation from "./SidebarTab";
+import { Connection } from "@/types/connection";
 
-export default function Sidebar() {
-  const [hidden, setHidden] = useState(false);
-  const { user, loading, handleLogout } = useUserInfo();
+interface SidebarProps {
+  connections: Connection[]
+  activeTab: 'connections' | 'tables';
+  onTabChange: (tab: 'connections' | 'tables') => void;
+}
+
+export default function Sidebar({connections, activeTab, onTabChange }: SidebarProps) {
+  const { user, handleLogout } = useUserInfo();
+  
+  const typedUser = user as unknown as UserDetails
 
   return (
-    <aside
-      className={`relative flex flex-col h-screen w-64 bg-white border-r border-gray-200 shadow-lg rounded-xl transition-all ${
-        hidden ? "-ml-64" : "ml-0"
-      }`}
-    >
-      {/* Toggle Button */}
-      <button
-        className="absolute top-6 right-[-18px] bg-white border border-gray-300 rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors"
-        onClick={() => setHidden((h) => !h)}
-        aria-label={hidden ? "Show sidebar" : "Hide sidebar"}
-      >
-        <span className="text-lg font-bold text-gray-500">{hidden ? "→" : "←"}</span>
-      </button>
-
-      {/* Tabs */}
-      <div className="px-2 pt-8 pb-2 flex-1">
-        <SidebarTab />
+    <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg border-r border-slate-200">
+      {/* Logo/Header */}
+      <div className="flex items-center h-16 px-6 border-b border-slate-200">
+        <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center mr-3">
+          <div className="bg-blue-500 p-1.5 rounded-lg"><Database className="text-white"/>
+          </div>
+        </div>
+        <h1 className="text-xl font-bold text-slate-800">DataWhiz</h1>
       </div>
 
-      {/* Footer */}
-      <div className="px-2 pb-4">
-        <footer className="rounded-lg bg-gray-50 border-t border-gray-200 flex items-center gap-3 p-3 shadow-sm">
-          {loading ? (
-            <span className="text-gray-400">Loading...</span>
-          ) : user ? (
-            <>
-              <Avatar src={user.avatar_url || ""} size={36} />
-              <div className="flex flex-col flex-1 ml-2">
-                <span className="font-semibold text-gray-800">{user.name}</span>
-                <span className="text-xs text-gray-500">{user.email}</span>
-              </div>
-              <button className="ml-2 text-red-500 hover:text-red-700 transition-colors" title="Logout" onClick={handleLogout}>
-                <LogOut size={22} />
-              </button>
-            </>
-          ) : (
-            <span className="text-red-500">No user info</span>
-          )}
-        </footer>
-      </div>
-    </aside>
+      {/* Navigation Tabs */}
+      <SidebarNavigation activeTab={activeTab} onTabChange={onTabChange} connections={connections}/>
+
+      {/* User Profile Footer */}
+      <SidebarFooter user={typedUser} handleLogout={handleLogout}/>
+    </div>
   );
 }

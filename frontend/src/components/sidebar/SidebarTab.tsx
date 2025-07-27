@@ -1,49 +1,42 @@
-import { Database, Settings, Table } from "lucide-react";
-import React, { useState } from "react";
+import { Connection } from "@/types/connection"
+import { Plug, Table } from "lucide-react"
 
-type TabProps = {
-  label: string;
-  icon: React.ReactNode;
-  active: boolean;
-  onClick: () => void;
-};
-
-function Tab({ label, icon, active, onClick }: TabProps) {
-  return (
-    <button
-      className={`flex items-center gap-3 px-5 py-2 w-full text-left rounded-lg transition-colors border-l-4 ${
-        active
-          ? "bg-gray-100 border-blue-500 font-semibold text-blue-900 shadow-sm"
-          : "border-transparent hover:bg-gray-50 text-gray-700"
-      }`}
-      onClick={onClick}
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
-  );
+interface SidebarNavigationProps {
+  connections: Connection[]
+  activeTab: "connections" | "tables"
+  onTabChange: (tab: "connections" | "tables") => void
 }
 
-const tabs = [
-  { label: "Connections", icon: <Database size={18} /> },
-  { label: "Tables/Collections", icon: <Table size={18} /> },
-  { label: "Settings", icon: <Settings size={18} /> },
-];
-
-export default function SidebarTab() {
-  const [activeTab, setActiveTab] = useState(0);
-
+export default function SidebarNavigation({connections, activeTab, onTabChange}: SidebarNavigationProps) {
   return (
-    <nav className="flex-1 mt-8">
-      {tabs.map((tab, idx) => (
-        <Tab
-          key={tab.label}
-          label={tab.label}
-          icon={tab.icon}
-          active={activeTab === idx}
-          onClick={() => setActiveTab(idx)}
-        />
-      ))}
-    </nav>
-  );
+  <nav className="p-4">
+    <div className="space-y-2">
+      <button
+        onClick={() => onTabChange('connections')}
+        className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+        activeTab === 'connections'
+          ? 'bg-blue-50 text-blue-600 border-l-4 border-primary'
+          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+        }`}
+      >
+        <Plug className="mr-2" />
+        <span className="font-medium">Connections</span>
+        <span className="ml-auto bg-primary text-xs px-2 py-1 rounded-full">
+          {Array.isArray(connections) ? connections.length : 0}
+        </span>
+      </button>
+      <button
+        onClick={() => onTabChange('tables')}
+        className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+        activeTab === 'tables'
+          ? 'bg-blue-50 text-blue-600 border-l-4 border-primary'
+          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+        }`}
+      >
+        <Table className="mr-2"/>
+        <span className="font-medium">Tables/Records</span>
+      </button>
+    </div>
+  </nav>
+  )
 }

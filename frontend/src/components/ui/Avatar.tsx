@@ -8,14 +8,14 @@ interface AvatarProps {
 
 
 export default function Avatar({src, size, className}: AvatarProps) {
-    const avatarSrc = src || "/user-default.svg"
+    const avatarSrc = src || "/user-default.png"
     return (
         <Image 
             src={avatarSrc}
-            alt="Avatar"
             width={size}
             height={size}
-            className={`rounded-full object-cover bg-gray-200 ${className}`}
+            alt="User avatar"
+            className={`w-10 h-10 rounded-full object-cover mr-3 ${className}`}
         />
     )
 }

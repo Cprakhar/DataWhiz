@@ -25,14 +25,18 @@ export const showToast = {
   info: (msg: string, options?: ToastOptions) => toast.info(msg, options),
   warn: (msg: string, options?: ToastOptions) => toast.warn(msg, options),
   loading: (msg: string, options?: ToastOptions & { toastId?: Id }) => toast.loading(msg, options),
-  custom: (content: React.ReactNode, options?: ToastOptions) => toast(content, options),
   update: (toastId: Id, options: ToastOptions & { render?: React.ReactNode; isLoading?: boolean }) => toast.update(toastId, options),
+  custom: (content: React.ReactNode, options?: ToastOptions) => toast(content, options),
   dismiss: (toastId?: Id) => toast.dismiss(toastId),
 };
 
 export function toastPromise<T>(
   promise: Promise<T>,
-  messages: { pending: string; success: string; error: string },
+  messages: {
+    pending: string;
+    success: string;
+    error: string;
+  },
   options?: ToastOptions
 ) {
   return toast.promise(
@@ -40,7 +44,7 @@ export function toastPromise<T>(
     {
       pending: messages.pending,
       success: messages.success,
-      error: messages.error,
+      error: messages.error
     },
     options
   );
@@ -59,3 +63,10 @@ export const CustomToast: React.FC<CustomToastProps> = ({ closeToast, data }) =>
     <button className="text-xs text-blue-600 mt-1 self-end" onClick={closeToast}>Close</button>
   </div>
 );
+
+
+export const DefaultToastOptions: ToastOptions = {
+  pauseOnHover: false,
+  autoClose: 5000,
+  closeOnClick: true,
+};
