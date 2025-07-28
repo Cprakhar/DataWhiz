@@ -13,7 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-func CreateConnectionString(conn *schema.ConnectionRequest) (string, error) {
+func CreateConnectionString(conn *schema.ManualConnectionForm) (string, error) {
 	switch conn.DBType {
 	case "postgresql":
 		return sql_.CreatePostgresConnectionString(conn)
@@ -45,17 +45,45 @@ func NewDBPool(dbCfg *config.DBConfig, connStr, dbType string) (interface{}, err
 
 func PingDB(dbCfg *config.DBConfig, conn *schema.ConnectionRequest) error {
 
-	connStr, err := CreateConnectionString(conn)
+	if conn.ManualConn == nil {
+		pool, err := NewDBPool(dbCfg, conn.StringConn.ConnString, conn.StringConn.DBType)
+		if err != nil {
+			return err
+		}
+
+		switch conn.StringConn.DBType {
+    	case "postgresql":
+        	pgPool := pool.(*pgxpool.Pool)
+        	defer pgPool.Close()
+        	return sql_.PingPostgres(pgPool)
+    	case "mysql":
+        	sqlPool := pool.(*sql.DB)
+        	defer sqlPool.Close()
+        	return sql_.PingMySQL(sqlPool)
+    	case "sqlite":
+        	sqlPool := pool.(*sql.DB)
+        	defer sqlPool.Close()
+        	return sql_.PingSQLite(sqlPool)
+    	case "mongodb":
+        	mongoClient := pool.(*mongo.Client)
+        	defer mongoClient.Disconnect(context.Background())
+        	return nosql.PingMongoDB(mongoClient)
+    	default:
+        	return errors.New("unsupported database type: " + conn.StringConn.DBType)
+    	}
+	}
+
+	connStr, err := CreateConnectionString(conn.ManualConn)
 	if err != nil {
 		return err
 	}
 
-	pool, err := NewDBPool(dbCfg, connStr, conn.DBType)
+	pool, err := NewDBPool(dbCfg, connStr, conn.ManualConn.DBType)
 	if err != nil {
 		return err
 	}
 
-	switch conn.DBType {
+	switch conn.StringConn.DBType {
     case "postgresql":
         pgPool := pool.(*pgxpool.Pool)
         defer pgPool.Close()
@@ -73,6 +101,6 @@ func PingDB(dbCfg *config.DBConfig, conn *schema.ConnectionRequest) error {
         defer mongoClient.Disconnect(context.Background())
         return nosql.PingMongoDB(mongoClient)
     default:
-        return errors.New("unsupported database type: " + conn.DBType)
+        return errors.New("unsupported database type: " + conn.StringConn.DBType)
     }
 }

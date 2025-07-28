@@ -23,18 +23,26 @@ func (h *Handler) HandlePingConnection(ctx *gin.Context) {
 		response.InternalError(ctx, err)
 		return
 	}
-	response.JSON(ctx, http.StatusOK, "Connection successful", nil)
+	response.JSON(ctx, http.StatusOK, "Connection verified!", nil)
 
 }
 
 func (h *Handler) HandleCreateConnection(ctx *gin.Context) {
+	session := sessions.Default(ctx)
+	userID := session.Get("user_id")
+	if userID == nil {
+		response.Unauthorized(ctx, "Authentication required")
+		return
+	}
+
+
 	var req schema.ConnectionRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(ctx, "Invalid request data", err)
 		return
 	}
 
-	exists, err := connections.CheckConnectionExists(h.Cfg.DBClient, &req)
+	exists, err := connections.CheckConnectionExists(h.Cfg.DBClient, &req, userID.(string))
 	if err != nil {
 		response.InternalError(ctx, err)
 		return
@@ -51,7 +59,7 @@ func (h *Handler) HandleCreateConnection(ctx *gin.Context) {
 	}
 
 	newConn := &schema.Connection{
-		UserID:         req.UserID,
+		UserID:         userID.(string),
 		Port:           req.Port,
 		Host:           req.Host,
 		Username:       req.Username,
@@ -75,16 +83,37 @@ func (h *Handler) HandleGetConnections(ctx *gin.Context) {
     session := sessions.Default(ctx)
     userID := session.Get("user_id").(string) // Safe: middleware guarantees presence
 
-    connections, err := connections.GetConnectionsByUserID(h.Cfg.DBClient, userID)
+    conns, err := connections.GetConnectionsByUserID(h.Cfg.DBClient, userID)
     if err != nil {
         response.InternalError(ctx, err)
         return
     }
 
-    if len(connections) == 0 {
-        response.NotFound(ctx, "No connections found for user")
-        return
-    }
+	if conns == nil {
+		conns = []connections.ResponseConnection{}
+	}
 
-    response.JSON(ctx, http.StatusOK, "User connections", connections)
+    response.JSON(ctx, http.StatusOK, "User connections", conns)
+}
+
+func (h *Handler) HandleDeleteConnection(ctx *gin.Context) {
+	session := sessions.Default(ctx)
+	userID := session.Get("user_id").(string)
+	if userID == "" {
+		response.Unauthorized(ctx, "Authentication required")
+		return
+	}
+
+	connID := ctx.Param("id")
+	if connID == "" {
+		response.BadRequest(ctx, "Connection ID is required", nil)
+		return
+	}
+	err := connections.DeleteConnection(h.Cfg.DBClient, connID, userID)
+	if err != nil {
+		response.InternalError(ctx, err)
+		return
+	}
+
+	response.OK(ctx, "Connection deleted successfully")
 }

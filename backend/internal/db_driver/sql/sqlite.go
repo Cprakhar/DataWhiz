@@ -43,11 +43,11 @@ func NewSQLitePool(dbCfg *config.DBConfig, filePath string) (*sql.DB, error){
 	return pool, nil
 }
 
-func CreateSQLiteConnectionString(conn *schema.ConnectionRequest) (string, error) {
+func CreateSQLiteConnectionString(conn *schema.ManualConnectionForm) (string, error) {
 	// Construct the connection string
 	connStr := "file:" + conn.DBName + "?cache=shared&mode=ro&_journal_mode=WAL&_sync=FULL"
 
-	if conn.SSLMode == "require" {
+	if conn.SSLMode {
 		connStr += "&sslmode=require"
 	} else {
 		connStr += "&sslmode=disable"

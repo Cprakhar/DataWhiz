@@ -2,7 +2,6 @@ package nosql
 
 import (
 	"context"
-	"strconv"
 	"time"
 
 	"github.com/cprakhar/datawhiz/config"
@@ -42,18 +41,18 @@ func NewMongoDBPool(dbCfg *config.DBConfig, connStr string) (*mongo.Client, erro
 	return pool, nil
 }
 
-func CreateMongoDBConnectionString(conn *schema.ConnectionRequest) (string, error) {
+func CreateMongoDBConnectionString(conn *schema.ManualConnectionForm) (string, error) {
 	if conn.Host == "" {
 		conn.Host = "localhost"
 	}
-	if conn.Port == 0 {
-		conn.Port = 27017 // Default MongoDB port
+	if conn.Port == "" {
+		conn.Port = "27017" // Default MongoDB port
 	}
 
 	// Construct the connection string
-	connStr := "mongodb://" + conn.Username + ":" + conn.Password + "@" + conn.Host + ":" + strconv.Itoa(conn.Port) + "/" + conn.DBName
+	connStr := "mongodb://" + conn.Username + ":" + conn.Password + "@" + conn.Host + ":" + conn.Port + "/" + conn.DBName
 
-	if conn.SSLMode == "require" {
+	if conn.SSLMode {
 		connStr += "?ssl=true"
 	} else {
 		connStr += "?ssl=false"

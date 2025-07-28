@@ -3,7 +3,6 @@ package sql
 import (
 	"context"
 	"database/sql"
-	"strconv"
 	"time"
 
 	"github.com/cprakhar/datawhiz/config"
@@ -43,18 +42,18 @@ func NewMySQLPool(dbCfg *config.DBConfig, connStr string) (*sql.DB, error) {
 }
 
 
-func CreateMySQLConnectionString(conn *schema.ConnectionRequest) (string, error) {
+func CreateMySQLConnectionString(conn *schema.ManualConnectionForm) (string, error) {
 	if conn.Host == "" {
 		conn.Host = "localhost"
 	}
-	if conn.Port == 0 {
-		conn.Port = 3306 // Default MySQL port
+	if conn.Port == "" {
+		conn.Port = "3306" // Default MySQL port
 	}
 
 	// Construct the connection string
-	connStr := conn.Username + ":" + conn.Password + "@tcp(" + conn.Host + ":" + strconv.Itoa(conn.Port) + ")/" + conn.DBName
+	connStr := conn.Username + ":" + conn.Password + "@tcp(" + conn.Host + ":" + conn.Port + ")/" + conn.DBName
 
-	if conn.SSLMode == "require" {
+	if conn.SSLMode {
 		connStr += "?tls=true"
 	} else {
 		connStr += "?tls=skip-verify"

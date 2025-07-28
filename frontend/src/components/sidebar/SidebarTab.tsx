@@ -15,7 +15,7 @@ export default function SidebarNavigation({connections, activeTab, onTabChange}:
         onClick={() => onTabChange('connections')}
         className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
         activeTab === 'connections'
-          ? 'bg-blue-50 text-blue-600 border-l-4 border-primary'
+          ? 'bg-blue-50 text-blue-600'
           : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
         }`}
       >
@@ -29,7 +29,7 @@ export default function SidebarNavigation({connections, activeTab, onTabChange}:
         onClick={() => onTabChange('tables')}
         className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
         activeTab === 'tables'
-          ? 'bg-blue-50 text-blue-600 border-l-4 border-primary'
+          ? 'bg-blue-50 text-blue-600'
           : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
         }`}
       >

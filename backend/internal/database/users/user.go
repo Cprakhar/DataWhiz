@@ -2,8 +2,6 @@ package users
 
 import (
 	"encoding/json"
-	"fmt"
-	"strings"
 
 	"github.com/cprakhar/datawhiz/internal/database/schema"
 	"github.com/supabase-community/supabase-go"
@@ -18,33 +16,30 @@ type ResponseUser struct {
 }
 
 func InsertOneUser(client *supabase.Client, user *schema.User) (*ResponseUser, error) {
-	data, _, err := client.From("users").Insert(user, false, "", "representation", "exact").Execute()
+	data, _, err := client.From("users").Insert(user, false, "", "representation", "exact").Single().Execute()
 	if err != nil {
 		return nil, err
 	}
 
-	var users []schema.User
-	if err := json.Unmarshal(data, &users); err != nil {
+	var newUser schema.User
+	if err := json.Unmarshal(data, &newUser); err != nil {
 		return nil, err
 	}
-	if len(users) == 0 {
-		return nil, fmt.Errorf("no user returned from insert")
-	}
-	u := users[0]
+	
 	return &ResponseUser{
-		ID:            u.ID,
-		Name:          u.Name,
-		Email:         u.Email,
-		AvatarURL:     u.AvatarURL,
-		OAuthProvider: u.OAuthProvider,
+		ID:            newUser.ID,
+		Name:          newUser.Name,
+		Email:         newUser.Email,
+		AvatarURL:     newUser.AvatarURL,
+		OAuthProvider: newUser.OAuthProvider,
 	}, nil
 }
 
 func GetUserByEmail(client *supabase.Client, email string) (*ResponseUser, error) {
-	data, _, err := client.From("users").Select("*", "", false).Eq("email", email).Single().Execute()
+	data, count, err := client.From("users").Select("*", "", false).Eq("email", email).Single().Execute()
 	if err != nil {
-		if err.Error() != "" && strings.Contains(err.Error(), "PGRST116") {
-			return  nil, nil
+		if count == 0 {
+			return nil, nil
 		}
 		return nil, err
 	}
@@ -62,8 +57,11 @@ func GetUserByEmail(client *supabase.Client, email string) (*ResponseUser, error
 }
 
 func GetUserByID(client *supabase.Client, id string) (*ResponseUser, error) {
-	data, _, err := client.From("users").Select("*", "", false).Eq("id", id).Single().Execute()
+	data, count, err := client.From("users").Select("*", "exact", false).Eq("id", id).Single().Execute()
 	if err != nil {
+		if count == 0 {
+			return nil, nil
+		}
 		return nil, err
 	}
 

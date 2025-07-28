@@ -2,7 +2,6 @@ package sql
 
 import (
 	"context"
-	"strconv"
 	"time"
 
 	"github.com/cprakhar/datawhiz/config"
@@ -54,19 +53,19 @@ func NewPostgresPool(dbCfg *config.DBConfig, connStr string) (*pgxpool.Pool, err
 }
 
 
-func CreatePostgresConnectionString(conn *schema.ConnectionRequest) (string, error) {
+func CreatePostgresConnectionString(conn *schema.ManualConnectionForm) (string, error) {
 	if conn.Host == "" {
 		conn.Host = "localhost"
 	}
-	if conn.Port == 0 {
-		conn.Port = 5432
+	if conn.Port == "" {
+		conn.Port = "5432"
 	}
 
 	sslMode := "disable"
-	if conn.SSLMode == "" {
-		sslMode = "disable"
+	if conn.SSLMode {
+		sslMode = "require"
 	}
 
 	return "postgres://" + conn.Username + ":" + conn.Password + "@" + conn.Host + ":" +
-		strconv.Itoa(conn.Port) + "/" + conn.DBName + "?sslmode=" + sslMode, nil
+		conn.Port + "/" + conn.DBName + "?sslmode=" + sslMode, nil
 }

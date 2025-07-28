@@ -50,6 +50,7 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 	api.POST("/connections", middleware.RequireAuth(), h.HandleCreateConnection)
 	api.GET("/connections", middleware.RequireAuth(), h.HandleGetConnections)
 	api.POST("/connections/ping", middleware.RequireAuth(), h.HandlePingConnection)
+	api.DELETE("/connections/:id", middleware.RequireAuth(), h.HandleDeleteConnection)
 
 	return router
 }

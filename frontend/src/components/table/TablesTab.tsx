@@ -434,3 +434,9 @@
 //     </div>
 //   );
 // }
+
+export default function TablesTab() {
+  return <div>
+    <h1>Tables page</h1>
+  </div>
+}

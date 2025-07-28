@@ -3,7 +3,6 @@ package connections
 import (
 	"encoding/json"
 	"log"
-	"strconv"
 
 	"github.com/cprakhar/datawhiz/internal/database/schema"
 	"github.com/supabase-community/supabase-go"
@@ -16,7 +15,7 @@ type ResponseConnection struct {
 	Username       string `json:"username"`
 	DBType         string `json:"db_type"`
 	ConnectionName string `json:"connection_name"`
-	SSLMode        string `json:"ssl_mode"`
+	SSLMode        bool   `json:"ssl_mode"`
 	DBName         string `json:"db_name"`
 	IsActive       bool   `json:"is_active"`
 }
@@ -47,14 +46,17 @@ func InsertOneConnection(client *supabase.Client, conn *schema.Connection) (*Res
 }
 
 // CheckConnectionExistsHandler checks if a connection with the same name, db_type, host, port, and user_id exists for the user.
-func CheckConnectionExists(client *supabase.Client, req *schema.ConnectionRequest) (bool, error) {
-	data, _, err := client.From("connections").Select("*", "", false).Eq("user_id", req.UserID).
-		Eq("connection_name", req.ConnectionName).
+func CheckConnectionExists(client *supabase.Client, req *schema.ManualConnectionForm, userId string) (bool, error) {
+	data, count, err := client.From("connections").Select("*", "exact", false).Eq("user_id", userId).
+		Eq("connection_name", req.ConnName).
 		Eq("db_type", req.DBType).
 		Eq("host", req.Host).
-		Eq("port", strconv.Itoa(req.Port)).Single().
+		Eq("port", req.Port).Single().
 		Execute()
 	if err != nil {
+		if count == 0 {
+			return false, nil
+		}
 		return false, err
 	}
 	var conn schema.Connection
@@ -95,4 +97,13 @@ func GetConnectionsByUserID(client *supabase.Client, userID string) ([]ResponseC
 	}
 
 	return response, nil
+}
+
+func DeleteConnection(client *supabase.Client, id, userID string) error {
+	_, _, err := client.From("connections").Delete("minimal", "").Eq("id", id).Eq("user_id", userID).Single().Execute()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
