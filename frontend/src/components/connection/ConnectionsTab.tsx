@@ -6,15 +6,28 @@ import { LoaderPinwheel, Plug, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
 
 interface ConnectionsTabProps {
+  onActivateConnection: (id: string, dbType: string) => Promise<void>
+  onDeactivateConnection: (id: string) => Promise<void>
   onRefresh: () => Promise<void>
   onDelete: (id: string) => Promise<void>
   loading: boolean
   connections: Connection[]
+  activeLoading: boolean
 }
 
 
-export default function ConnectionsTab({loading, connections, onDelete, onRefresh}: ConnectionsTabProps) {
+export default function ConnectionsTab({
+  loading,
+  activeLoading, 
+  connections, 
+  onDelete, 
+  onRefresh,
+  onActivateConnection,
+  onDeactivateConnection,
+
+}: ConnectionsTabProps) {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [changingId, setChangingId] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -78,29 +91,46 @@ export default function ConnectionsTab({loading, connections, onDelete, onRefres
               <div key={connection.id} className="px-6 py-4 hover:bg-slate-50 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getDBColor(connection.db_type)}`}>
-                      <Image src={getDBIcon(connection.db_type)} alt={connection.db_type} width={20} height={20}/>
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getDBColor(connection.dbType)}`}>
+                      <Image src={getDBIcon(connection.dbType)} alt={connection.dbType} width={20} height={20}/>
                     </div>
                     <div>
-                      <h4 className="font-medium text-slate-800">{connection.connection_name}</h4>
+                      <h4 className="font-medium text-slate-800">{connection.connName}</h4>
                       <div className="flex items-center space-x-4 text-sm text-slate-500 mt-1">
                         <span>{connection.host}:{connection.port}</span>
-                        <span>{connection.db_name}</span>
+                        <span>{connection.dbName}</span>
                         <span>{connection.username}</span>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      connection.is_active 
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      <div className={`w-2 h-2 rounded-full mr-1 ${
-                        connection.is_active ? 'bg-emerald-500' : 'bg-slate-400'
-                      }`}></div>
-                      {connection.is_active ? 'Active' : 'Inactive'}
-                    </span>
+                    <button
+                      onClick={async () => {
+                        setChangingId(connection.id);
+                        if (connection.isActive) {
+                          await onDeactivateConnection(connection.id);
+                        } else {
+                          await onActivateConnection(connection.id, connection.dbType);
+                        }
+                        setChangingId(null);
+                      }}
+                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium focus:outline-none transition-colors ${
+                        connection.isActive
+                          ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                      disabled={activeLoading || changingId === connection.id}
+                      title={connection.isActive ? 'Disconnect' : 'Connect'}
+                    >
+                      {changingId === connection.id ? (
+                        <LoaderPinwheel className="w-4 h-4 mr-1 animate-spin" />
+                      ) : (
+                        <div className={`w-2 h-2 rounded-full mr-1 ${
+                          connection.isActive ? 'bg-emerald-500' : 'bg-slate-400'
+                        }`}></div>
+                      )}
+                      {connection.isActive ? 'Connected' : 'Connect'}
+                    </button>
                     {!loading ?
                     <button
                       onClick={() => onDelete(connection.id)}

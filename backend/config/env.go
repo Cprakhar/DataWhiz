@@ -24,6 +24,7 @@ type Env struct {
 	ConnMaxLifetime    time.Duration `env:"CONN_MAX_LIFETIME" envDefault:"30m"`
 	ConnMaxIdleTime    time.Duration `env:"CONN_MAX_IDLE_TIME" envDefault:"5m"`
 	EncryptionKey      string        `env:"ENCRYPTION_KEY" envDefault:""`
+	CleanupInterval    time.Duration `env:"CLEANUP_INTERVAL" envDefault:"15m"`
 }
 
 func LoadEnv() (*Env, error) {

@@ -1,36 +1,96 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# Datawhiz Monorepo
+
+This is a fullstack monorepo for Datawhiz, containing:
+
+- **frontend/**: Next.js (React/TypeScript) web application
+- **backend/**: Go (Gin) API server
+
+---
+
+## Project Structure
+
+```
+datawhiz/
+├── backend/
+│   ├── cmd/
+│   │   └── server.go         # Backend entry point
+│   ├── internal/            # Handlers, DB drivers, pool manager, etc.
+│   ├── api/                 # API definitions
+│   ├── pkg/                 # Shared Go code
+│   └── go.mod, go.sum
+├── frontend/
+│   ├── src/app/             # Next.js app source
+│   ├── public/              # Static assets
+│   ├── package.json, tsconfig.json, next.config.ts
+│   └── ...
+└── README.md
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Setup Environment Variables
+
+Both the backend and frontend require their own environment files. Copy and edit the example files in each directory:
+
+### Backend
+```bash
+cd backend
+cp .env.example .env
+# Edit backend/.env as needed
+```
+
+### Frontend
+```bash
+cd frontend
+cp .env.example .env
+# Edit frontend/.env as needed
+```
+
+---
+
+## Running the Backend (Go)
+
+```bash
+cd backend/cmd/datawhiz
+go run server.go
+```
+
+---
+
+## Running the Frontend (Next.js)
+
+```bash
+cd frontend
+npm install
+npm run dev
+# or yarn dev / pnpm dev / bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to view the app.
+
+---
+
+## Features
+
+- Multi-database connection management (Postgres, MySQL, SQLite, MongoDB)
+- Connection pooling with auto-expiry
+- User authentication (OAuth, email)
+- Modern dashboard UI (Next.js, Tailwind CSS)
+- Toast notifications, protected routes, and more
+
+---
 
 ## Learn More
 
-To learn more about Next.js, take a look at the following resources:
+- [Next.js Documentation](https://nextjs.org/docs)
+- [gin-gonic Documentation](https://gin-gonic.com/docs/)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## License
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT

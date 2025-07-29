@@ -1,7 +1,6 @@
 // import { useState } from "react";
 // import { useQuery } from "@tanstack/react-query";
 // import type { Connection } from "@shared/schema";
-// import { JSONTree } from 'react-json-tree';
 
 // export default function TablesTab() {
 //   const [selectedDatabase, setSelectedDatabase] = useState<string>('');
@@ -103,14 +102,9 @@
 //   const displaySchema = selectedDatabase && selectedTable ? (schemaData || (isNoSqlDatabase ? mockNoSqlSchema : mockSqlSchema)) : (isNoSqlDatabase ? mockNoSqlSchema : mockSqlSchema);
 
 //   return (
-//     <div className="p-6">
-//       {/* Header */}
-//       <div className="flex items-center justify-between mb-6">
-//         <div>
-//           <h2 className="text-2xl font-bold text-slate-800">Tables & Records</h2>
-//           <p className="text-slate-600 mt-1">Browse database tables and view records</p>
-//         </div>
-//         {/* Database Selector */}
+//     <div className="p-6 max-w-full overflow-hidden">
+//       {/* Database Selector */}
+//       <div className="flex items-center justify-end mb-6">
 //         <select
 //           value={selectedDatabase}
 //           onChange={(e) => {
@@ -129,9 +123,9 @@
 //       </div>
 
 //       {/* Tables Grid */}
-//       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+//       <div className="flex flex-col lg:flex-row gap-6 min-w-0">
 //         {/* Tables List */}
-//         <div className="lg:col-span-1">
+//         <div className="lg:w-80 flex-shrink-0">
 //           <div className="bg-white rounded-xl shadow-sm border border-slate-200">
 //             <div className="px-4 py-3 border-b border-slate-200">
 //               <h3 className="font-semibold text-slate-800">Tables</h3>
@@ -178,7 +172,7 @@
 //         </div>
 
 //         {/* Records & Schema Viewer */}
-//         <div className="lg:col-span-2">
+//         <div className="flex-1 min-w-0">
 //           <div className="bg-white rounded-xl shadow-sm border border-slate-200">
 //             {/* Tab Header */}
 //             <div className="px-4 py-3 border-b border-slate-200">
@@ -255,23 +249,23 @@
 //                       </div>
 //                     ) : (
 //                       <div className="overflow-x-auto">
-//                         <table className="w-full">
+//                         <table className="min-w-full table-auto">
 //                           <thead className="bg-slate-50">
 //                             <tr>
-//                               <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">ID</th>
-//                               <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
-//                               <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Email</th>
-//                               <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-//                               <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Created</th>
+//                               <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-20">ID</th>
+//                               <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider min-w-32">Name</th>
+//                               <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider min-w-40">Email</th>
+//                               <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-24">Status</th>
+//                               <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-28">Created</th>
 //                             </tr>
 //                           </thead>
 //                           <tbody className="bg-white divide-y divide-slate-200">
 //                             {displayRecords.map((record, index) => (
 //                               <tr key={record.id || index} className="hover:bg-slate-50">
-//                                 <td className="px-4 py-3 text-sm text-slate-900">{record.id}</td>
-//                                 <td className="px-4 py-3 text-sm text-slate-900">{record.name}</td>
-//                                 <td className="px-4 py-3 text-sm text-slate-600">{record.email}</td>
-//                                 <td className="px-4 py-3 text-sm">
+//                                 <td className="px-3 py-3 text-sm text-slate-900 whitespace-nowrap">{record.id}</td>
+//                                 <td className="px-3 py-3 text-sm text-slate-900 truncate max-w-32">{record.name}</td>
+//                                 <td className="px-3 py-3 text-sm text-slate-600 truncate max-w-40">{record.email}</td>
+//                                 <td className="px-3 py-3 text-sm whitespace-nowrap">
 //                                   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
 //                                     record.status === 'Active' 
 //                                       ? 'bg-emerald-100 text-emerald-700'
@@ -280,7 +274,7 @@
 //                                     {record.status}
 //                                   </span>
 //                                 </td>
-//                                 <td className="px-4 py-3 text-sm text-slate-600">{record.created}</td>
+//                                 <td className="px-3 py-3 text-sm text-slate-600 whitespace-nowrap">{record.created}</td>
 //                               </tr>
 //                             ))}
 //                           </tbody>
@@ -435,8 +429,8 @@
 //   );
 // }
 
-export default function TablesTab() {
-  return <div>
-    <h1>Tables page</h1>
-  </div>
+const TablesTab = () => {
+  return "Tables Tab"
 }
+
+export default TablesTab

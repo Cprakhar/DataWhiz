@@ -35,8 +35,15 @@ export default function useConnectionForm(connectionMethod: "manual" | "string")
   const [testOK, setTestOk] = useState(false)
   const [successOK, setSuccessOK] = useState(false)
 
-  const handleChange = useCallback((name: string,  val: string | number) => {
-    setForm(prev => ({ ...prev, [name]: val }));
+  const handleChange = useCallback((name: string,  val: string | number | boolean) => {
+    if (name === "dbType") {
+      const defaults = getManualDefaultValues(val as string)
+      setForm(prev => ({
+        ...prev,
+        dbType: val as string,
+        ...defaults
+      }))
+    } else setForm(prev => ({ ...prev, [name]: val }));
     setErrors(prev => ({ ...prev, [name]: "" }));
   }, []);
 
@@ -62,8 +69,12 @@ export default function useConnectionForm(connectionMethod: "manual" | "string")
     setTestOk(false)
 
     try {
-      await TestConnection(form, connectionMethod)
+      const res = await TestConnection(form, connectionMethod)
+      showToast.success(res.message, {...DefaultToastOptions,
+        isLoading: false
+      })
       setTestOk(true)
+
     } catch (err) {
       let errMsg = "An unexpected error occurred."
       if (err && typeof err === "object" && "message" in err) {

@@ -1,7 +1,7 @@
 import FormField from "@/components/ui/FormField";
-import Select from "@/components/ui/Select";
 import { FieldErrors } from "@/types/auth";
 import { getManualDefaultValues } from "@/utils/connection";
+import ToggleButton from "@/components/ui/ToggleButton";
 
 export type ManualConnectionForm = {
   dbType: string
@@ -18,7 +18,7 @@ export type ManualConnectionForm = {
 interface ManualTabProps {
   form: ManualConnectionForm;
   errors: FieldErrors;
-  handleChange: (name: string, value: string | number) => void;
+  handleChange: (name: string, value: string | number | boolean) => void;
 }
 
 export default function ManualTab({form, errors, handleChange}: ManualTabProps) {
@@ -32,24 +32,6 @@ export default function ManualTab({form, errors, handleChange}: ManualTabProps) 
         onChange={val => handleChange("connName", val)}
         error={errors.connName}
         placeholder="My Database Connection"
-      />
-      <Select
-        label="Database Type"
-        value={form.dbType}
-        onChange={val => {
-          handleChange("dbType", val);
-          Object.entries(getManualDefaultValues(val)).forEach(([key, value]) => {
-            handleChange(key, value as string | number);
-          });
-        }}
-        options={[
-          { value: "postgresql", label: "PostgreSQL" },
-          { value: "mysql", label: "MySQL" },
-          { value: "mongodb", label: "MongoDB" },
-          { value: "sqlite", label: "SQLite" },
-        ]}
-        error={errors.dbType}
-        placeholder="Select Database Type"
       />
       {form.dbType === "sqlite" ? (
         <FormField
@@ -107,6 +89,16 @@ export default function ManualTab({form, errors, handleChange}: ManualTabProps) 
               error={errors.password}
               type="password"
               placeholder={defaults.password || "••••••••"}
+            />
+          </div>
+          <div className="mt-4">
+            <ToggleButton
+              checked={form.host === "localhost" ? false : form.sslMode}
+              onChange={val => {
+                if (form.host !== "localhost") handleChange("sslMode", val);
+              }}
+              label="SSL Mode"
+              disabled={form.host === "localhost"}
             />
           </div>
         </>

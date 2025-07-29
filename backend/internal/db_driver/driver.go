@@ -43,47 +43,14 @@ func NewDBPool(dbCfg *config.DBConfig, connStr, dbType string) (interface{}, err
 	}
 }
 
-func PingDB(dbCfg *config.DBConfig, conn *schema.ConnectionRequest) error {
+func PingDB(dbCfg *config.DBConfig, connString, dbType string) error {
 
-	if conn.ManualConn == nil {
-		pool, err := NewDBPool(dbCfg, conn.StringConn.ConnString, conn.StringConn.DBType)
-		if err != nil {
-			return err
-		}
-
-		switch conn.StringConn.DBType {
-    	case "postgresql":
-        	pgPool := pool.(*pgxpool.Pool)
-        	defer pgPool.Close()
-        	return sql_.PingPostgres(pgPool)
-    	case "mysql":
-        	sqlPool := pool.(*sql.DB)
-        	defer sqlPool.Close()
-        	return sql_.PingMySQL(sqlPool)
-    	case "sqlite":
-        	sqlPool := pool.(*sql.DB)
-        	defer sqlPool.Close()
-        	return sql_.PingSQLite(sqlPool)
-    	case "mongodb":
-        	mongoClient := pool.(*mongo.Client)
-        	defer mongoClient.Disconnect(context.Background())
-        	return nosql.PingMongoDB(mongoClient)
-    	default:
-        	return errors.New("unsupported database type: " + conn.StringConn.DBType)
-    	}
-	}
-
-	connStr, err := CreateConnectionString(conn.ManualConn)
+	pool, err := NewDBPool(dbCfg, connString, dbType)
 	if err != nil {
 		return err
 	}
 
-	pool, err := NewDBPool(dbCfg, connStr, conn.ManualConn.DBType)
-	if err != nil {
-		return err
-	}
-
-	switch conn.StringConn.DBType {
+	switch dbType {
     case "postgresql":
         pgPool := pool.(*pgxpool.Pool)
         defer pgPool.Close()
@@ -101,6 +68,35 @@ func PingDB(dbCfg *config.DBConfig, conn *schema.ConnectionRequest) error {
         defer mongoClient.Disconnect(context.Background())
         return nosql.PingMongoDB(mongoClient)
     default:
-        return errors.New("unsupported database type: " + conn.StringConn.DBType)
+        return errors.New("unsupported database type: " + dbType)
     }
+}
+
+func ExtractDBDetails(conn *schema.StringConnectionForm) (*schema.ManualConnectionForm, error) {
+	switch conn.DBType {
+	case "postgresql":
+		return sql_.ExtractPostgresDetails(conn)
+	case "mysql":
+		return sql_.ExtractMySQLDetails(conn)
+	case "mongodb":
+		return nosql.ExtractMongoDBDetails(conn)
+	default:
+		return nil, errors.New("unsupported database type: " + conn.DBType)
+	}
+}
+
+// ExtractDBTables extracts the list of tables or collections from the database.
+func ExtractDBTables(pool interface{}, dbType string) ([]string, error) {
+	switch dbType {
+	case "postgresql":
+		return sql_.GetPostgresTables(pool.(*pgxpool.Pool))
+	case "mysql":
+		return sql_.GetMySQLTables(pool.(*sql.DB))
+	case "sqlite":
+		return sql_.GetSQLiteTables(pool.(*sql.DB))
+	case "mongodb":
+		return nosql.GetMongoDBCollections(pool.(*mongo.Client))
+	default:
+		return nil, errors.New("unsupported database type: " + dbType)
+	}
 }

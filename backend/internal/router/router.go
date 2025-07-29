@@ -40,17 +40,26 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 	h.InitProviders()
 
 	api := router.Group("/api/v1")
+
 	api.GET("/health", h.HandleHealthCheck)
+
 	api.POST("/auth/register", h.HandleRegister)
 	api.GET("/auth/oauth/signin", h.HandleOAuthSignIn)
 	api.GET("/auth/oauth/callback", h.HandleOAuthCallback)
 	api.POST("/auth/login", h.HandleLogin)
 	api.POST("/auth/logout", middleware.RequireAuth(), h.HandleLogout)
 	api.GET("/auth/me", middleware.RequireAuth(), h.HandleMe)
-	api.POST("/connections", middleware.RequireAuth(), h.HandleCreateConnection)
+
+
 	api.GET("/connections", middleware.RequireAuth(), h.HandleGetConnections)
+	api.GET("/connections/:id", middleware.RequireAuth(), h.HandleGetConnection)
 	api.POST("/connections/ping", middleware.RequireAuth(), h.HandlePingConnection)
+	api.POST("/connections", middleware.RequireAuth(), h.HandleCreateConnection)
+	api.POST("/connections/:id/activate", middleware.RequireAuth(), h.HandleActivateConnection)
+	api.DELETE("/connections/:id/deactivate", middleware.RequireAuth(), h.HandleDeactivateConnection)
 	api.DELETE("/connections/:id", middleware.RequireAuth(), h.HandleDeleteConnection)
+	
+	api.GET("/tables/:id/", middleware.RequireAuth(), h.HandleGetTables)
 
 	return router
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 
 	"github.com/cprakhar/datawhiz/config"
+	poolmanager "github.com/cprakhar/datawhiz/internal/pool_manager"
 	"github.com/cprakhar/datawhiz/internal/router"
 )
 
@@ -23,6 +24,9 @@ func main() {
 	}
 
 	config.Env.EncryptionKey = string(encryptionKey)
+	
+
+	poolmanager.StartCleanupRoutine(config.Env.CleanupInterval)
 	
 	server := router.NewRouter(config)
 	server.Run(":" + config.Env.Port) // Use the port from the configuration

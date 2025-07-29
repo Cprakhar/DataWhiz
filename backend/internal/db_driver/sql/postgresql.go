@@ -2,6 +2,8 @@ package sql
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"time"
 
 	"github.com/cprakhar/datawhiz/config"
@@ -68,4 +70,82 @@ func CreatePostgresConnectionString(conn *schema.ManualConnectionForm) (string, 
 
 	return "postgres://" + conn.Username + ":" + conn.Password + "@" + conn.Host + ":" +
 		conn.Port + "/" + conn.DBName + "?sslmode=" + sslMode, nil
+}
+
+func ExtractPostgresDetails(conn *schema.StringConnectionForm) (*schema.ManualConnectionForm, error) {
+	// Assuming the connection string is in the format:
+	// postgres://username:password@host:port/dbname?sslmode=mode
+	
+	parts := strings.SplitN(conn.ConnString, "://", 2)
+	if len(parts) != 2 {
+		return nil, errors.New("invalid connection string format")
+	}
+
+	connDetails := &schema.ManualConnectionForm{
+		DBType:   conn.DBType,
+		ConnName: conn.ConnName,
+	}
+
+	// Parse the connection string to extract details
+	connStrParts := strings.SplitN(parts[1], "@", 2)
+	if len(connStrParts) != 2 {
+		return nil, errors.New("invalid connection string format")
+	}
+
+	userPass := strings.SplitN(connStrParts[0], ":", 2)
+	if len(userPass) != 2 {
+		return nil, errors.New("invalid user:password format")
+	}
+	connDetails.Username = userPass[0]
+	connDetails.Password = userPass[1]
+
+	hostPortDB := strings.SplitN(connStrParts[1], "/", 2)
+	if len(hostPortDB) != 2 {
+		return nil, errors.New("invalid host:port/dbname format")
+	}
+
+	hostPort := strings.SplitN(hostPortDB[0], ":", 2)
+	if len(hostPort) == 2 {
+		connDetails.Host = hostPort[0]
+		connDetails.Port = hostPort[1]
+	} else {
+		connDetails.Host = hostPort[0]
+		connDetails.Port = "5432" // Default PostgreSQL port
+	}
+
+	connDetails.DBName = hostPortDB[1]
+	connDetails.SSLMode = false // default
+
+	for param := range strings.SplitSeq(parts[1], "&") {
+		if after, ok :=strings.CutPrefix(param, "sslmode="); ok  {
+			connDetails.SSLMode = (after == "require")
+			break
+		}
+	}
+
+	return connDetails, nil
+}
+
+// GetPostgresTables retrieves the list of tables in the PostgreSQL database.
+func GetPostgresTables(pool *pgxpool.Pool) ([]string, error) {
+	rows, err := pool.Query(context.Background(), 
+		"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tables []string
+	for rows.Next() {
+		var tableName string
+		if err := rows.Scan(&tableName); err != nil {
+			return nil, err
+		}
+		tables = append(tables, tableName)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return tables, nil
 }

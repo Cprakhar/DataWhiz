@@ -75,12 +75,6 @@ export const getStringDefaultValues = (type: string) => {
         connName: "",
         dbType: "mongodb"
       };
-    case "sqlite":
-      return {
-        connString: "sqlite:///path/to/database.db",
-        connName: "",
-        dbType: "sqlite"
-      };
     default:
       return {
         connString: "",

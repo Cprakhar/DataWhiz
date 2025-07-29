@@ -14,7 +14,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'connections' | 'tables'>('connections');
   const [sidebarVisible, setSidebarVisible] = useState(true);
-  const {connections, handleGetConnections, handleDeleteConnection, loading: connLoading} = useConnectionsTab()
+  const {
+    connections, 
+    handleGetConnections, 
+    handleDeleteConnection, 
+    loading: connLoading,
+    activateLoading,
+    handleActivateConnection,
+    handleDeactivateConnection
+  } = useConnectionsTab()
 
   useEffect(() => {
     handleGetConnections()
@@ -46,7 +54,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main Content */}
       <div className={`transition-all duration-300 ${sidebarVisible ? 'lg:ml-64' : 'ml-0'} min-w-0 flex-1`}>
         {activeTab === 'connections' ? (
-          <ConnectionsTab connections={connections} loading={connLoading} onDelete={handleDeleteConnection} onRefresh={handleGetConnections}/>
+          <ConnectionsTab 
+            connections={connections} 
+            loading={connLoading}
+            activeLoading={activateLoading} 
+            onDelete={handleDeleteConnection} 
+            onRefresh={handleGetConnections}
+            onActivateConnection={handleActivateConnection}
+            onDeactivateConnection={handleDeactivateConnection}
+            />
         ) : activeTab === 'tables' ? (
           <TablesTab />
         ) : (

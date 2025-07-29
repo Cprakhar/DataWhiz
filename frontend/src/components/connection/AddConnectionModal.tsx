@@ -6,6 +6,7 @@ import TestTube from "../ui/TestTubeVibrate";
 import SaveIcon from "../ui/Save";
 import ManualTab, { ManualConnectionForm } from "./ManualTab";
 import ConnectionStringTab, { StringConnectionForm } from "./ConnectionStringTab";
+import DBTypeSelector from "../ui/DBTypeSelector";
 
 interface AddConnectionModalProps {
   refreshConnections: () => Promise<void>
@@ -44,8 +45,9 @@ export default function AddConnectionModal({ onClose, refreshConnections }: AddC
 
         {/* Body */}
         <div className="p-6">
+          <DBTypeSelector dbType={form.dbType} setDbType={val => handleChange("dbType", val)} error={errors.dbType}/>
           {/* Connection Method Tabs */}
-          <div className="flex space-x-1 mb-6 bg-slate-100 p-1 rounded-lg">
+          {form.dbType !== "sqlite" ? <div className="flex space-x-1 mb-6 bg-slate-100 p-1 rounded-lg">
             <button
               onClick={() => setConnectionMethod('manual')}
               className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -66,23 +68,21 @@ export default function AddConnectionModal({ onClose, refreshConnections }: AddC
             >
               Connection String
             </button>
-          </div>
+          </div> : null}
 
           {/* Form */}
-          <form onSubmit={async (e) => { e.preventDefault(); await handleSubmit(e); }} className="space-y-4">
+          <form onSubmit={async (e) => { e.preventDefault(); await handleSubmit(e); }} className="space-y-4" id="add-connection">
             {connectionMethod === "manual" ? 
               <ManualTab 
                 form={form as ManualConnectionForm} 
                 errors={errors} 
                 handleChange={handleChange}
               /> : 
-              <ConnectionStringTab 
+               ( form.dbType !== "sqlite" ? <ConnectionStringTab 
                 form={form as StringConnectionForm}
                 errors={errors}
                 handleChange={handleChange}
-              
-              />
-          
+              /> : null)
             }
 
             {/* Footer Actions */}

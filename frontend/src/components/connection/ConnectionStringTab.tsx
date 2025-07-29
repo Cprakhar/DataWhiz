@@ -1,5 +1,4 @@
 import FormField from "@/components/ui/FormField";
-import Select from "@/components/ui/Select";
 import { FieldErrors } from "@/types/auth";
 import { getStringDefaultValues } from "@/utils/connection";
 
@@ -26,24 +25,6 @@ export default function ConnectionStringTab({ form, errors, handleChange }: Conn
         onChange={val => handleChange("connName", val)}
         error={errors.connection_name}
         placeholder="My Database Connection"
-      />
-      <Select
-        label="Database Type"
-        value={form.dbType}
-        onChange={val => {
-          handleChange("dbType", val);
-          Object.entries(getStringDefaultValues(val)).forEach(([key, value]) => {
-            handleChange(key, value as string | number);
-          });
-        }}
-        options={[
-          { value: "postgresql", label: "PostgreSQL" },
-          { value: "mysql", label: "MySQL" },
-          { value: "mongodb", label: "MongoDB" },
-          { value: "sqlite", label: "SQLite" },
-        ]}
-        error={errors.dbType}
-        placeholder="Select Database Type"
       />
       <FormField
         name="connString"
