@@ -60,6 +60,7 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 	api.DELETE("/connections/:id", middleware.RequireAuth(), h.HandleDeleteConnection)
 	
 	api.GET("/tables/:id", middleware.RequireAuth(), h.HandleGetTables)
-
+	api.GET("/tables/:id/:table_name/schema", middleware.RequireAuth(), h.HandleGetTableSchema)
+	api.GET("/tables/:id/:table_name/records", middleware.RequireAuth(), h.HandleGetTableRecords)
 	return router
 }

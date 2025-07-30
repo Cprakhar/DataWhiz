@@ -13,8 +13,21 @@ export const GetTables = async (connID: string) => {
   return res.json()
 }
 
-export const GetTableRecords = async (connID: string, tableName: string) => {
-  const res = await fetch(`/api/tables/${connID}/${tableName}`, {
+export const GetTableSchema = async (connID: string, dbName: string, tableName: string) => {
+  const res = await fetch(`/api/tables/${connID}/${tableName}/schema?db_name=${dbName}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include"
+  })
+  if (!res.ok) {
+    const err: AppError = await res.json()
+    throw err
+  }
+  return res.json()
+}
+
+export const GetTableRecords = async (connID: string, dbType: string, tableName: string) => {
+  const res = await fetch(`/api/tables/${connID}/${tableName}/records?db_type=${dbType}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
     credentials: "include"

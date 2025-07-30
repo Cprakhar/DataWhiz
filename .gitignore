@@ -5,3 +5,4 @@ next-env.d.ts
 db_schema.md
 react-toastify-docs.md
 .entrypoint.sh
+schema_details.md

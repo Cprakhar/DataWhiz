@@ -2,6 +2,14 @@ import TablesList from "./TableList";
 import useTablesTab, { MongoDBTables, SQLTables } from "@/hooks/useTablesTab";
 import DBSelector from "./DBSelector";
 import { Connection } from "@/types/connection";
+import Indexes from "./Indexes";
+import TabHeader from "./TabHeader";
+import ColumnSchema from "./ColumnSchema";
+import ForeignKey from "./ForeignKey";
+import RecordTab from "./RecordTab";
+import { use, useEffect, useState } from "react";
+import { getForeignKeysFromColumns, getIndexesFromColumns } from "@/utils/table";
+import { Inbox, MousePointer } from "lucide-react";
 
 
 interface TablesTabProps {
@@ -11,73 +19,28 @@ interface TablesTabProps {
 const TablesTab = ({databases} : TablesTabProps) => {
   const {
     tables, 
-    loading, 
-    records,
+    loading,
     selectedTable,
     selectedDatabase,
+    tableSchema,
+    mongoSchema,
+    mongoRecords,
     setSelectedTable,
     setSelectedDatabase,
+    handleGetTableSchemaAndRecords,
+    handleGetMongoSchemaAndRecords,
   } = useTablesTab()
 
-  // // Mock schema data for demo
-  // const mockSqlSchema = {
-  //   tableName: selectedTable,
-  //   columns: [
-  //     { name: 'id', type: 'INTEGER', primary: true, nullable: false, default: 'AUTO_INCREMENT' },
-  //     { name: 'name', type: 'VARCHAR(255)', primary: false, nullable: false, default: null },
-  //     { name: 'email', type: 'VARCHAR(255)', primary: false, nullable: false, default: null },
-  //     { name: 'status', type: 'ENUM', primary: false, nullable: false, default: "'pending'" },
-  //     { name: 'created', type: 'TIMESTAMP', primary: false, nullable: false, default: 'CURRENT_TIMESTAMP' },
-  //   ],
-  //   foreignKeys: [
-  //     { column: 'user_id', references: 'users(id)', onDelete: 'CASCADE' }
-  //   ],
-  //   indexes: [
-  //     { name: 'idx_email', columns: ['email'], unique: true },
-  //     { name: 'idx_status', columns: ['status'], unique: false }
-  //   ]
-  // };
+  useEffect(() => {
+    if (selectedDatabase && selectedDatabase.dbType !== "mongodb" && selectedTable) {
+      handleGetTableSchemaAndRecords();
+    }
+  }, [selectedDatabase, selectedTable, handleGetTableSchemaAndRecords]);
 
-  // const mockNoSqlSchema = {
-  //   _id: "ObjectId",
-  //   name: "string",
-  //   email: "string", 
-  //   profile: {
-  //     age: "number",
-  //     address: {
-  //       street: "string",
-  //       city: "string",
-  //       zipCode: "string"
-  //     },
-  //     preferences: ["string"]
-  //   },
-  //   orders: [
-  //     {
-  //       orderId: "ObjectId",
-  //       amount: "number",
-  //       date: "Date",
-  //       items: [
-  //         {
-  //           productId: "ObjectId",
-  //           quantity: "number",
-  //           price: "number"
-  //         }
-  //       ]
-  //     }
-  //   ],
-  //   metadata: {
-  //     createdAt: "Date",
-  //     updatedAt: "Date",
-  //     version: "number"
-  //   }
-  // };
 
-  // const displayRecords = selectedDatabase && selectedTable ? (records? || [])
-  
-  // Get connection type for schema rendering
+  const [activeTab, setActiveTab] = useState<'records' | 'schema'>('records');
   const selectedConnection = databases.find(conn => conn.id === selectedDatabase?.connID);
   const dbType = selectedConnection?.dbType
-  // const displaySchema = selectedDatabase && selectedTable ? (schemaData || (isNoSqlDatabase ? mockNoSqlSchema : mockSqlSchema)) : (isNoSqlDatabase ? mockNoSqlSchema : mockSqlSchema);
 
   let displayTables: SQLTables = [];
   let mongoTreeData: MongoDBTables = {};
@@ -88,6 +51,10 @@ const TablesTab = ({databases} : TablesTabProps) => {
     displayTables = tables as SQLTables;
   }
 
+  const foreignKeys = getForeignKeysFromColumns(tableSchema.columnSchema)
+  const indexes = getIndexesFromColumns(tableSchema.columnSchema)
+  const isNoSqlDatabase = dbType === "mongodb";
+
   return (
     <div className="p-6 max-w-full overflow-hidden">
       {/* Database Selector */}
@@ -97,86 +64,43 @@ const TablesTab = ({databases} : TablesTabProps) => {
         selectedDatabase={selectedDatabase}
       />
       
+      {/* Tables List */}
       <TablesList
         dbType={dbType ?? ""}
         displayTables={displayTables} 
         mongoTreeData={mongoTreeData}
         selectedDatabase={selectedDatabase} 
         selectedTable={selectedTable}
-        setActiveTab={(tab) => {"records"}}
+        setActiveTab={(tab) => setActiveTab(tab)}
         setSelectedTable={setSelectedTable}
       />
       
 
         {/* Records & Schema Viewer */}
-        {/* <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0">
           <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-            /* Tab Header 
-            <div className="px-4 py-3 border-b border-slate-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <h3 className="font-semibold text-slate-800">
-                    {selectedTable ? selectedTable : 'Select a table'}
-                  </h3>
-                  {selectedTable && (
-                    <div className="flex space-x-1">
-                      <button
-                        onClick={() => setActiveTab('records')}
-                        className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                          activeTab === 'records'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                        }`}
-                      >
-                        <i className="fas fa-table mr-1"></i>
-                        Records
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('schema')}
-                        className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                          activeTab === 'schema'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                        }`}
-                      >
-                        <i className="fas fa-code mr-1"></i>
-                        Schema
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {selectedTable && activeTab === 'records' && (
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-slate-500">
-                      {!selectedDatabase ? 'Demo data' : 'Showing 1-10'}
-                    </span>
-                    <div className="flex space-x-1">
-                      <button className="p-1 text-slate-400 hover:text-slate-600">
-                        <i className="fas fa-chevron-left"></i>
-                      </button>
-                      <button className="p-1 text-slate-400 hover:text-slate-600">
-                        <i className="fas fa-chevron-right"></i>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            {/* Tab Header  */}
+            <TabHeader
+              selectedTable={selectedTable}
+              activeTab={activeTab}
+              setActiveTab={(tab) => setActiveTab(tab)}
+              selectedDatabase={selectedDatabase}
+            />
             
-            {/* Tab Content 
+            {/* Tab Content */}
             {!selectedTable ? (
               <div className="px-4 py-12 text-center">
-                <i className="fas fa-mouse-pointer text-slate-400 text-2xl mb-2"></i>
+                <MousePointer className="h-10 w-10 mb-2 text-slate-400" />
                 <p className="text-slate-500">Select a table to view its records and schema</p>
               </div>
             ) : (
               <div>
-                {/* Records Tab
+                {/* Records Tab */}
                 {activeTab === 'records' && (
                   <div>
-                    {displayRecords.length === 0 ? (
+                    {tableSchema.recordsData.length === 0 ? (
                       <div className="px-4 py-12 text-center">
-                        <i className="fas fa-inbox text-slate-400 text-2xl mb-2"></i>
+                        <Inbox className="h-10 w-10 mb-2 text-slate-400" />
                         <p className="text-slate-500">
                           {selectedDatabase 
                             ? 'No records found in this table' 
@@ -185,82 +109,18 @@ const TablesTab = ({databases} : TablesTabProps) => {
                         </p>
                       </div>
                     ) : (
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full table-auto">
-                          <thead className="bg-slate-50">
-                            <tr>
-                              <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-20">ID</th>
-                              <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider min-w-32">Name</th>
-                              <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider min-w-40">Email</th>
-                              <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-24">Status</th>
-                              <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-28">Created</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-slate-200">
-                            {displayRecords.map((record, index) => (
-                              <tr key={record.id || index} className="hover:bg-slate-50">
-                                <td className="px-3 py-3 text-sm text-slate-900 whitespace-nowrap">{record.id}</td>
-                                <td className="px-3 py-3 text-sm text-slate-900 truncate max-w-32">{record.name}</td>
-                                <td className="px-3 py-3 text-sm text-slate-600 truncate max-w-40">{record.email}</td>
-                                <td className="px-3 py-3 text-sm whitespace-nowrap">
-                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                    record.status === 'Active' 
-                                      ? 'bg-emerald-100 text-emerald-700'
-                                      : 'bg-yellow-100 text-yellow-700'
-                                  }`}>
-                                    {record.status}
-                                  </span>
-                                </td>
-                                <td className="px-3 py-3 text-sm text-slate-600 whitespace-nowrap">{record.created}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                      <RecordTab 
+                        columns={tableSchema.columnSchema} 
+                        records={tableSchema.recordsData}
+                      />
                     )}
                   </div>
                 )}
 
-                {/* Schema Tab
+                {/* Schema Tab */}
                 {activeTab === 'schema' && (
                   <div className="p-4">
-                    {isNoSqlDatabase ? (
-                      <div>
-                        <div className="mb-4">
-                          <h4 className="text-sm font-medium text-slate-700 mb-2">Document Structure</h4>
-                          <p className="text-xs text-slate-500 mb-4">
-                            Showing inferred schema from document analysis
-                          </p>
-                        </div>
-                        <div className="bg-slate-50 rounded-lg p-4 overflow-auto max-h-96">
-                          <JSONTree
-                            data={displaySchema}
-                            theme={{
-                              scheme: 'bright',
-                              author: 'chris kempson (http://chriskempson.com)',
-                              base00: '#000000',
-                              base01: '#303030',
-                              base02: '#505050',
-                              base03: '#b0b0b0',
-                              base04: '#d0d0d0',
-                              base05: '#e0e0e0',
-                              base06: '#f5f5f5',
-                              base07: '#ffffff',
-                              base08: '#fb0120',
-                              base09: '#fc6d24',
-                              base0A: '#fda331',
-                              base0B: '#a1c659',
-                              base0C: '#76c7b7',
-                              base0D: '#6fb3d2',
-                              base0E: '#d381c3',
-                              base0F: '#be643c'
-                            }}
-                            invertTheme={false}
-                            hideRoot={false}
-                          />
-                        </div>
-                      </div>
-                    ) : (
+                    {isNoSqlDatabase ? null : (
                       <div>
                         <div className="mb-4">
                           <h4 className="text-sm font-medium text-slate-700 mb-2">Table Schema</h4>
@@ -269,89 +129,17 @@ const TablesTab = ({databases} : TablesTabProps) => {
                           </p>
                         </div>
                         
-                        {/* Columns 
-                        <div className="mb-6">
-                          <h5 className="text-sm font-semibold text-slate-800 mb-3">Columns</h5>
-                          <div className="overflow-x-auto">
-                            <table className="w-full border border-slate-200 rounded-lg">
-                              <thead className="bg-slate-50">
-                                <tr>
-                                  <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">Column</th>
-                                  <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">Type</th>
-                                  <th className="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase">Primary</th>
-                                  <th className="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase">Nullable</th>
-                                  <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">Default</th>
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-slate-100">
-                                {displaySchema.columns?.map((column: any, index: number) => (
-                                  <tr key={index} className="hover:bg-slate-50">
-                                    <td className="px-3 py-2 text-sm font-medium text-slate-900">
-                                      {column.name}
-                                      {column.primary && (
-                                        <i className="fas fa-key text-yellow-500 ml-1 text-xs"></i>
-                                      )}
-                                    </td>
-                                    <td className="px-3 py-2 text-sm text-slate-600 font-mono">{column.type}</td>
-                                    <td className="px-3 py-2 text-sm text-center">
-                                      {column.primary ? (
-                                        <i className="fas fa-check text-green-500"></i>
-                                      ) : (
-                                        <span className="text-slate-400">-</span>
-                                      )}
-                                    </td>
-                                    <td className="px-3 py-2 text-sm text-center">
-                                      {column.nullable ? (
-                                        <i className="fas fa-check text-green-500"></i>
-                                      ) : (
-                                        <i className="fas fa-times text-red-500"></i>
-                                      )}
-                                    </td>
-                                    <td className="px-3 py-2 text-sm text-slate-600 font-mono">
-                                      {column.default || <span className="text-slate-400">NULL</span>}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
+                        {/* Columns */}
+                        <ColumnSchema columns={tableSchema.columnSchema} />
 
-                        {/* Foreign Keys
-                        {displaySchema.foreignKeys && displaySchema.foreignKeys.length > 0 && (
-                          <div className="mb-6">
-                            <h5 className="text-sm font-semibold text-slate-800 mb-3">Foreign Keys</h5>
-                            <div className="space-y-2">
-                              {displaySchema.foreignKeys.map((fk: any, index: number) => (
-                                <div key={index} className="flex items-center space-x-2 p-3 bg-slate-50 rounded-lg">
-                                  <i className="fas fa-link text-blue-500"></i>
-                                  <span className="text-sm font-mono text-slate-700">{fk.column}</span>
-                                  <i className="fas fa-arrow-right text-slate-400"></i>
-                                  <span className="text-sm font-mono text-slate-700">{fk.references}</span>
-                                  <span className="text-xs text-slate-500 ml-2">({fk.onDelete})</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
+                        {/* Foreign Keys */}
+                        {foreignKeys && foreignKeys.length > 0 && (
+                          <ForeignKey foreignKeys={foreignKeys} />
                         )}
 
-                        {/* Indexes
-                        {displaySchema.indexes && displaySchema.indexes.length > 0 && (
-                          <div>
-                            <h5 className="text-sm font-semibold text-slate-800 mb-3">Indexes</h5>
-                            <div className="space-y-2">
-                              {displaySchema.indexes.map((index: any, idx: number) => (
-                                <div key={idx} className="flex items-center space-x-2 p-3 bg-slate-50 rounded-lg">
-                                  <i className={`fas ${index.unique ? 'fa-fingerprint' : 'fa-list'} text-purple-500`}></i>
-                                  <span className="text-sm font-medium text-slate-700">{index.name}</span>
-                                  <span className="text-sm text-slate-600">({index.columns.join(', ')})</span>
-                                  {index.unique && (
-                                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">UNIQUE</span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
+                        {/* Indexes */}
+                        {indexes && indexes.length > 0 && (
+                          <Indexes indexes={indexes} />
                         )}
                       </div>
                     )}
@@ -360,7 +148,7 @@ const TablesTab = ({databases} : TablesTabProps) => {
               </div>
             )}
           </div>
-        </div> */}
+        </div>
       </div>
   );
 }

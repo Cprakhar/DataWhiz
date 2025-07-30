@@ -10,7 +10,7 @@ interface TablesListProps {
   displayTables?: SQLTables
   selectedTable: string | null;
   setSelectedTable: Dispatch<SetStateAction<string | null>>;
-  setActiveTab: (tab: string) => void;
+  setActiveTab: (tab: "records" | "schema") => void;
   mongoTreeData?: MongoDBTables;
 }
 

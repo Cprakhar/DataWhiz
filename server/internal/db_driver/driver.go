@@ -100,3 +100,33 @@ func ExtractDBTables(pool interface{}, dbType string) (interface{}, error) {
 		return nil, errors.New("unsupported database type: " + dbType)
 	}
 }
+
+func GetTableSchema(pool interface{}, dbType, dbName, tableName string) (interface{}, error) {
+	switch dbType {
+	case "postgresql":
+		return sql_.GetPostgresTableSchema(pool.(*pgxpool.Pool), tableName)
+	case "mysql":
+		return sql_.GetMySQLTableSchema(pool.(*sql.DB), tableName)
+	case "sqlite":
+		return sql_.GetSQLiteTableSchema(pool.(*sql.DB), tableName)
+	case "mongodb":
+		return nosql.GetMongoDBCollectionSchema(pool.(*mongo.Client), dbName, tableName)
+	default:
+		return nil, errors.New("unsupported database type: " + dbType)
+	}
+}
+
+func GetTableRecords(pool interface{}, dbType, dbName, tableName string) (interface{}, error) {
+	switch dbType {
+	case "postgresql":
+		return sql_.GetPostgresTableRecords(pool.(*pgxpool.Pool), tableName)
+	case "mysql":
+		return sql_.GetMySQLTableRecords(pool.(*sql.DB), tableName)
+	case "sqlite":
+		return sql_.GetSQLiteTableRecords(pool.(*sql.DB), tableName)
+	case "mongodb":
+		return nosql.GetMongoDBCollectionRecords(pool.(*mongo.Client), dbName, tableName)
+	default:
+		return nil, errors.New("unsupported database type: " + dbType)
+	}
+}

@@ -157,3 +157,178 @@ func GetMySQLTables(pool *sql.DB) ([]string, error) {
 
 	return tables, nil
 }
+
+func GetMySQLTableSchema(pool *sql.DB, tableName string) ([]schema.ColumnSchema, error) {
+	var columns []schema.ColumnSchema
+
+	//1. Query all columns
+	query := "SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns " +
+		"WHERE table_schema = DATABASE() AND table_name = ?"
+	rows, err := pool.Query(query, tableName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	//2. Get PKs
+	pkQuery := "SELECT kcu.column_name FROM information_schema.table_constraints tc " +
+		"JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name " +
+		"WHERE tc.table_schema = DATABASE() AND tc.table_name = ? AND tc.constraint_type = 'PRIMARY KEY'"
+	pkRows, err := pool.Query(pkQuery, tableName)
+	if err != nil {
+		return nil, err
+	}
+	defer pkRows.Close()
+	pkSet := make(map[string]struct{})
+	for pkRows.Next() {
+		var pkCol string
+		if err := pkRows.Scan(&pkCol); err != nil {
+			return nil, err
+		}
+		pkSet[pkCol] = struct{}{}
+	}
+
+	//3. Get FKs
+	fkQuery := "SELECT kcu.column_name, kcu.referenced_table_name, kcu.referenced_column_name " +
+		"FROM information_schema.table_constraints tc " +
+		"JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name " +
+		"WHERE tc.table_schema = DATABASE() AND tc.table_name = ? AND tc.constraint_type = 'FOREIGN KEY'"
+	fkRows, err := pool.Query(fkQuery, tableName)
+	if err != nil {
+		return nil, err
+	}
+	defer fkRows.Close()
+	fkMap := make(map[string]struct {
+		Table  string
+		Column string
+	})
+	for fkRows.Next() {
+		var fkCol, fkTable, fkColumn string
+		if err := fkRows.Scan(&fkCol, &fkTable, &fkColumn); err != nil {
+			return nil, err
+		}
+		fkMap[fkCol] = struct {
+			Table  string
+			Column string
+		}{Table: fkTable, Column: fkColumn}
+	}
+
+	//4. Get Uniques
+	uniqueQuery := "SELECT kcu.column_name FROM information_schema.table_constraints tc " +
+		"JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name " +
+		"WHERE tc.table_schema = DATABASE() AND tc.table_name = ? AND tc.constraint_type = 'UNIQUE'"
+	uniqueRows, err := pool.Query(uniqueQuery, tableName)
+	if err != nil {
+		return nil, err
+	}
+	defer uniqueRows.Close()
+	uniqueSet := make(map[string]struct{})
+	for uniqueRows.Next() {
+		var uniqueCol string
+		if err := uniqueRows.Scan(&uniqueCol); err != nil {
+			return nil, err
+		}
+		uniqueSet[uniqueCol] = struct{}{}
+	}
+
+	//5. Get Indexes (column_name, index_name)
+	indexQuery := "SELECT column_name, index_name FROM information_schema.statistics " +
+		"WHERE table_schema = DATABASE() AND table_name = ?"
+	indexRows, err := pool.Query(indexQuery, tableName)
+	if err != nil {
+		return nil, err
+	}
+	defer indexRows.Close()
+	indexMap := make(map[string][]string)
+	for indexRows.Next() {
+		var colName, indexName string
+		if err := indexRows.Scan(&colName, &indexName); err != nil {
+			return nil, err
+		}
+		indexMap[colName] = append(indexMap[colName], indexName)
+	}
+
+	//6. Build columns
+	for rows.Next() {
+		var name, typ, isNullableStr string
+		var defaultValue sql.NullString
+		if err := rows.Scan(&name, &typ, &isNullableStr, &defaultValue); err != nil {
+			return nil, err
+		}
+		col := schema.ColumnSchema{
+			Name:         name,
+			Type:         typ,
+			IsNullable:   isNullableStr == "YES",
+			DefaultValue: defaultValue,
+		}
+		// Set primary key flag
+		if _, ok := pkSet[col.Name]; ok {
+			col.IsPrimaryKey = true
+		}
+		// Set foreign key details
+		if fk, ok := fkMap[col.Name]; ok {
+			col.IsForeignKey = true
+			col.ForeignKeyTable = fk.Table
+			col.ForeignKeyColumn = fk.Column
+		}
+		// Set unique flag
+		if _, ok := uniqueSet[col.Name]; ok {
+			col.IsUnique = true
+		}
+		// Set indexes
+		if idxs, ok := indexMap[col.Name]; ok {
+			col.Indexes = idxs
+		}
+		columns = append(columns, col)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return columns, nil
+}
+
+func GetMySQLTableRecords(pool *sql.DB, tableName string) ([]map[string]interface{}, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	query := "SELECT * FROM " + tableName
+	rows, err := pool.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	var records []map[string]interface{}
+	for rows.Next() {
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range columns {
+			valuePtrs[i] = &values[i]
+		}
+
+		if err := rows.Scan(valuePtrs...); err != nil {
+			return nil, err
+		}
+
+		record := make(map[string]interface{})
+		for i, colName := range columns {
+			val := values[i]
+			if val == nil {
+				record[colName] = nil
+			} else {
+				record[colName] = val
+			}
+		}
+		records = append(records, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return records, nil
+}

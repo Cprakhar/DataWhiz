@@ -24,8 +24,8 @@ func PingSQLite(pool *sql.DB) error {
 }
 
 // NewSQLitePool creates a new SQLite pool with the provided file path.
-func NewSQLitePool(dbCfg *config.DBConfig, filePath string) (*sql.DB, error){
-	
+func NewSQLitePool(dbCfg *config.DBConfig, filePath string) (*sql.DB, error) {
+
 	dsn := "file:" + filePath + "?cache=shared&mode=rwc&_journal_mode=WAL&_sync=FULL"
 	pool, err := sql.Open("sqlite3", dsn)
 	if err != nil {
@@ -55,7 +55,6 @@ func CreateSQLiteConnectionString(conn *schema.ManualConnectionForm) (string, er
 
 	return conn.DBFilePath, nil
 }
-
 
 // ExtractSQLiteDBName extracts the database name from the SQLite file path.
 func ExtractSQLiteDBName(filePath string) string {
@@ -91,4 +90,161 @@ func GetSQLiteTables(db *sql.DB) ([]string, error) {
 	}
 
 	return tables, nil
+}
+
+func GetSQLiteTableSchema(db *sql.DB, tableName string) ([]schema.ColumnSchema, error) {
+	var columns []schema.ColumnSchema
+
+	// 1. Query all columns (pk and notnull as int)
+	query := "PRAGMA table_info(" + tableName + ")"
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// 2. Get FKs
+	fkQuery := "PRAGMA foreign_key_list(" + tableName + ")"
+	fkRows, err := db.Query(fkQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer fkRows.Close()
+	fkSet := make(map[string]struct {
+		Table  string
+		Column string
+	})
+	for fkRows.Next() {
+		var id, seq int
+		var table, from, to, onUpdate, onDelete, match string
+		if err := fkRows.Scan(&id, &seq, &table, &from, &to, &onUpdate, &onDelete, &match); err != nil {
+			return nil, err
+		}
+		fkSet[from] = struct {
+			Table  string
+			Column string
+		}{Table: table, Column: to}
+	}
+
+	// 3. Get indexes and unique constraints
+	idxListQuery := "PRAGMA index_list('" + tableName + "')"
+	idxListRows, err := db.Query(idxListQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer idxListRows.Close()
+	// indexName -> isUnique, origin
+	type idxMeta struct {
+		Unique bool
+		Origin string
+	}
+	idxMetaMap := make(map[string]idxMeta)
+	colToIndexes := make(map[string][]string)
+	uniqueCols := make(map[string]struct{})
+	for idxListRows.Next() {
+		var seq int
+		var indexName, origin string
+		var unique, partial int
+		if err := idxListRows.Scan(&seq, &indexName, &unique, &origin, &partial); err != nil {
+			return nil, err
+		}
+		idxMetaMap[indexName] = idxMeta{Unique: unique == 1, Origin: origin}
+
+		// For each index, get columns
+		idxInfoQuery := "PRAGMA index_info('" + indexName + "')"
+		idxInfoRows, err := db.Query(idxInfoQuery)
+		if err != nil {
+			return nil, err
+		}
+		for idxInfoRows.Next() {
+			var seqno, cid int
+			var colName string
+			if err := idxInfoRows.Scan(&seqno, &cid, &colName); err != nil {
+				idxInfoRows.Close()
+				return nil, err
+			}
+			colToIndexes[colName] = append(colToIndexes[colName], indexName)
+			// Mark as unique if index is unique and origin is 'u' (unique constraint)
+			if unique == 1 && origin == "u" {
+				uniqueCols[colName] = struct{}{}
+			}
+		}
+		idxInfoRows.Close()
+	}
+
+	// 4. Build columns
+	for rows.Next() {
+		var cid, notnull, pk int
+		var name, ctype string
+		var dfltValue sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk); err != nil {
+			return nil, err
+		}
+		column := schema.ColumnSchema{
+			Name:         name,
+			Type:         ctype,
+			IsNullable:   notnull == 0,
+			DefaultValue: dfltValue,
+			IsPrimaryKey: pk > 0,
+		}
+		if fkInfo, ok := fkSet[name]; ok {
+			column.IsForeignKey = true
+			column.ForeignKeyTable = fkInfo.Table
+			column.ForeignKeyColumn = fkInfo.Column
+		}
+		if _, ok := uniqueCols[name]; ok {
+			column.IsUnique = true
+		}
+		if idxs, ok := colToIndexes[name]; ok {
+			column.Indexes = idxs
+		}
+		columns = append(columns, column)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return columns, nil
+}
+
+func GetSQLiteTableRecords(db *sql.DB, tableName string) ([]map[string]interface{}, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	rows, err := db.QueryContext(ctx, "SELECT * FROM "+tableName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+	var records []map[string]interface{}
+	for rows.Next() {
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range columns {
+			valuePtrs[i] = &values[i]
+		}
+		if err := rows.Scan(valuePtrs...); err != nil {
+			return nil, err
+		}
+
+		record := make(map[string]interface{})
+		for i, colName := range columns {
+			val := values[i]
+			if val == nil {
+				record[colName] = nil
+			} else {
+				record[colName] = val
+			}
+		}
+		records = append(records, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return records, nil
 }
