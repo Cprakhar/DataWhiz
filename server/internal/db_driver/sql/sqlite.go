@@ -45,6 +45,7 @@ func NewSQLitePool(dbCfg *config.DBConfig, filePath string) (*sql.DB, error) {
 	return pool, nil
 }
 
+// CreateSQLiteConnectionString constructs a SQLite connection string from the provided connection form.
 func CreateSQLiteConnectionString(conn *schema.ManualConnectionForm) (string, error) {
 	if conn.DBFilePath == "" {
 		return "", errors.New("SQLite connection requires a file path")
@@ -92,6 +93,7 @@ func GetSQLiteTables(db *sql.DB) ([]string, error) {
 	return tables, nil
 }
 
+// GetSQLiteTableSchema retrieves the schema of a specific table in the SQLite database.
 func GetSQLiteTableSchema(db *sql.DB, tableName string) ([]schema.ColumnSchema, error) {
 	var columns []schema.ColumnSchema
 
@@ -206,6 +208,7 @@ func GetSQLiteTableSchema(db *sql.DB, tableName string) ([]schema.ColumnSchema, 
 	return columns, nil
 }
 
+// GetSQLiteTableRecords retrieves the records of a specific table in the SQLite database.
 func GetSQLiteTableRecords(db *sql.DB, tableName string) ([]map[string]interface{}, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -247,4 +250,50 @@ func GetSQLiteTableRecords(db *sql.DB, tableName string) ([]map[string]interface
 		return nil, err
 	}
 	return records, nil
+}
+
+// RunSQLiteQuery executes a query on the SQLite database and returns the results.
+func RunSQLiteQuery(db *sql.DB, query string) (interface{}, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	var results []map[string]interface{}
+	for rows.Next() {
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range columns {
+			valuePtrs[i] = &values[i]
+		}
+		if err := rows.Scan(valuePtrs...); err != nil {
+			return nil, err
+		}
+
+		result := make(map[string]interface{})
+		for i, colName := range columns {
+			val := values[i]
+			if val == nil {
+				result[colName] = nil
+			} else {
+				result[colName] = val
+			}
+		}
+		results = append(results, result)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return results, nil
 }

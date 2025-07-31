@@ -40,10 +40,6 @@ func (h *Handler) HandlePingConnection(ctx *gin.Context) {
 func (h *Handler) HandleCreateConnection(ctx *gin.Context) {
 	session := sessions.Default(ctx)
 	userID := session.Get("user_id")
-	if userID == nil {
-		response.Unauthorized(ctx, "Authentication required")
-		return
-	}
 
 	var req schema.ConnectionRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -130,7 +126,7 @@ func (h *Handler) HandleCreateConnection(ctx *gin.Context) {
 
 func (h *Handler) HandleGetConnections(ctx *gin.Context) {
     session := sessions.Default(ctx)
-    userID := session.Get("user_id").(string) // Safe: middleware guarantees presence
+    userID := session.Get("user_id").(string)
 
     conns, err := connections.GetConnectionsByUserID(h.Cfg.DBClient, userID)
     if err != nil {
@@ -170,10 +166,6 @@ func (h *Handler) HandleDeleteConnection(ctx *gin.Context) {
 func (h *Handler) HandleGetConnection(ctx *gin.Context) {
 	session := sessions.Default(ctx)
 	userID := session.Get("user_id")
-	if userID == nil {
-		response.Unauthorized(ctx, "Authentication required")
-		return
-	}
 
 	connID := ctx.Param("id")
 	if connID == "" {

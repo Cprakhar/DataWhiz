@@ -71,7 +71,7 @@ export const getStringDefaultValues = (type: string) => {
       };
     case "mongodb":
       return {
-        connString: "mongodb://username:password@localhost:27017/database_name",
+        connString: "mongodb+srv://username:password@localhost:27017/?retryWrites=true&w=majority&appName=your_app_name",
         connName: "",
         dbType: "mongodb"
       };

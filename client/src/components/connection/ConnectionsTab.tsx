@@ -134,9 +134,9 @@ export default function ConnectionsTab({
                     {!loading ?
                     <button
                       onClick={() => onDelete(connection.id, connection.isActive)}
-                      className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                      className="text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                     >
-                      <Trash2 />
+                      <Trash2 className="h-4 w-4"/>
                     </button> : <LoaderPinwheel className="animate-spin"/>
                     }
                   </div>

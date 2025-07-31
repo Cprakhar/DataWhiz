@@ -12,14 +12,15 @@ interface DBSelectorProps {
 }
 
 const DBSelector = ({databases, selectedDatabase, onDatabaseChange, setSelectedTable}: DBSelectorProps) => {
-  const selected = databases.find(db => db.id === selectedDatabase?.connID);
+  const activeDatabases = databases.filter(db => db.isActive);
+  const selected = activeDatabases.find(db => db.id === selectedDatabase?.connID);
   return (
     <div className="mb-4 lg:w-80 w-full">
       <label className="block text-sm font-medium text-gray-700 mb-1">Select Database</label>
       <RadixSelect.Root
         value={selectedDatabase?.connID ?? ""}
         onValueChange={val => {
-          const db = databases.find(db => db.id === val);
+          const db = activeDatabases.find(db => db.id === val);
           if (db) {
             onDatabaseChange({connID: db.id, dbType: db.dbType});
             setSelectedTable(null); // Reset selected table when database changes
@@ -46,16 +47,24 @@ const DBSelector = ({databases, selectedDatabase, onDatabaseChange, setSelectedT
         </RadixSelect.Trigger>
         <RadixSelect.Content className="z-50 bg-white rounded-md shadow-lg border border-gray-200 mt-1">
           <RadixSelect.Viewport>
-            {databases.length === 0 && (
-              <RadixSelect.Item value="" disabled className="px-3 py-2 text-gray-400">No databases</RadixSelect.Item>
+            {activeDatabases.length === 0 ? (
+              <div className="px-3 py-2 text-gray-400">
+                No databases available
+                <p className="text-slate-500 text-sm">Connect existing or add a new connection first.</p>
+              </div>
+            ) : (
+              activeDatabases.map(db => (
+                <RadixSelect.Item
+                  key={db.id}
+                  value={db.id}
+                  className="flex items-center px-3 py-2 cursor-pointer hover:bg-gray-100 focus:bg-gray-100"
+                >
+                  <Image src={getDBIcon(db.dbType)} alt={db.dbType} width={18} height={18} className="mr-2" />
+                    <span className={`text-xs font-semibold px-2 py-1 rounded ${getDBColor(db.dbType)} bg-opacity-10 mr-2`}>{db.dbType}</span>
+                    <span className="truncate">{db.dbName}</span>
+                </RadixSelect.Item>
+              ))
             )}
-            {databases.map(db => (
-              <RadixSelect.Item key={db.id} value={db.id} className="flex items-center px-3 py-2 cursor-pointer hover:bg-gray-100 focus:bg-gray-100">
-                <Image src={getDBIcon(db.dbType)} alt={db.dbType} width={18} height={18} className="mr-2" />
-                <span className={`text-xs font-semibold px-2 py-1 rounded ${getDBColor(db.dbType)} bg-opacity-10 mr-2`}>{db.dbType}</span>
-                <span className="truncate">{db.dbName}</span>
-              </RadixSelect.Item>
-            ))}
           </RadixSelect.Viewport>
         </RadixSelect.Content>
       </RadixSelect.Root>

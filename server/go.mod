@@ -7,6 +7,7 @@ require (
 	github.com/gin-contrib/sessions v1.0.4
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-sql-driver/mysql v1.9.3
+	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/markbates/goth v1.81.0
 	github.com/mattn/go-sqlite3 v1.14.29
@@ -14,6 +15,7 @@ require (
 	github.com/vrischmann/envconfig v1.4.1
 	go.mongodb.org/mongo-driver/v2 v2.2.2
 	golang.org/x/crypto v0.40.0
+	golang.org/x/text v0.27.0
 )
 
 require (
@@ -32,7 +34,6 @@ require (
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/context v1.1.2 // indirect
 	github.com/gorilla/mux v1.6.2 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
@@ -64,7 +65,6 @@ require (
 	golang.org/x/oauth2 v0.17.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect
-	golang.org/x/text v0.27.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

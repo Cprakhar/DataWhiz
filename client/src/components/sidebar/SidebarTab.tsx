@@ -19,7 +19,9 @@ export default function SidebarNavigation({connections, activeTab, onTabChange}:
           : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
         }`}
       >
-        <Plug className="mr-2" />
+        <Plug
+          className="mr-2 h-6 w-6"
+        />
         <span className="font-medium">Connections</span>
         <span className="ml-auto bg-primary text-xs px-2 py-1 rounded-full">
           {Array.isArray(connections) ? connections.length : 0}
@@ -33,7 +35,7 @@ export default function SidebarNavigation({connections, activeTab, onTabChange}:
           : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
         }`}
       >
-        <Table className="mr-2"/>
+        <Table className="mr-2 h-6 w-6"/>
         <span className="font-medium">Tables/Records</span>
       </button>
     </div>

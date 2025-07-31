@@ -43,6 +43,7 @@ func NewMySQLPool(dbCfg *config.DBConfig, connStr string) (*sql.DB, error) {
 	return pool, nil
 }
 
+// CreateMySQLConnectionString constructs a MySQL connection string from the provided connection form.
 func CreateMySQLConnectionString(conn *schema.ManualConnectionForm) (string, error) {
 	if conn.Host == "" {
 		conn.Host = "localhost"
@@ -63,6 +64,7 @@ func CreateMySQLConnectionString(conn *schema.ManualConnectionForm) (string, err
 	return connStr, nil
 }
 
+// ExtractMySQLDetails extracts the connection details from a MySQL connection string.
 func ExtractMySQLDetails(conn *schema.StringConnectionForm) (*schema.ManualConnectionForm, error) {
 
 	//Assuming the connection string is in the format:
@@ -158,6 +160,7 @@ func GetMySQLTables(pool *sql.DB) ([]string, error) {
 	return tables, nil
 }
 
+// GetMySQLTableSchema retrieves the schema of a specific table in the MySQL database.
 func GetMySQLTableSchema(pool *sql.DB, tableName string) ([]schema.ColumnSchema, error) {
 	var columns []schema.ColumnSchema
 
@@ -287,6 +290,7 @@ func GetMySQLTableSchema(pool *sql.DB, tableName string) ([]schema.ColumnSchema,
 	return columns, nil
 }
 
+// GetMySQLTableRecords retrieves the records of a specific table in the MySQL database.
 func GetMySQLTableRecords(pool *sql.DB, tableName string) ([]map[string]interface{}, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -331,4 +335,50 @@ func GetMySQLTableRecords(pool *sql.DB, tableName string) ([]map[string]interfac
 		return nil, err
 	}
 	return records, nil
+}
+
+// RunMySQLQuery executes a query on the MySQL database and returns the results.
+func RunMySQLQuery(pool *sql.DB, query string) (interface{}, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	rows, err := pool.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	var results []map[string]interface{}
+	for rows.Next() {
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range columns {
+			valuePtrs[i] = &values[i]
+		}
+
+		if err := rows.Scan(valuePtrs...); err != nil {
+			return nil, err
+		}
+
+		result := make(map[string]interface{})
+		for i, colName := range columns {
+			val := values[i]
+			if val == nil {
+				result[colName] = nil
+			} else {
+				result[colName] = val
+			}
+		}
+		results = append(results, result)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return results, nil
 }

@@ -16,6 +16,7 @@ type Env struct {
 	SupabaseURL        string        `env:"SUPABASE_URL" envDefault:""`
 	SupabaseKey        string        `env:"SUPABASE_KEY" envDefault:""`
 	GroqAPIKey         string        `env:"GROQ_API_KEY" envDefault:""`
+	GroqModel          string        `env:"GROQ_MODEL" envDefault:"meta-llama/llama-4-scout-17b-16e-instruct"`
 	SessionSecret      string        `env:"SESSION_SECRET" envDefault:"sessions-secret-key"`
 	SessionMaxAge      time.Duration `env:"SESSION_MAX_AGE" envDefault:"24h"`
 	SessionSecure      bool          `env:"SESSION_SECURE" envDefault:"false"`

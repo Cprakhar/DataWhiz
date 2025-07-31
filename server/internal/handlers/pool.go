@@ -11,10 +11,6 @@ import (
 func (h *Handler) HandleActivateConnection(ctx *gin.Context) {
 	session := sessions.Default(ctx)
 	userID := session.Get("user_id")
-	if userID == nil {
-		response.Unauthorized(ctx, "Authentication required")
-		return
-	}
 
 	connID := ctx.Param("id")
 	if connID == "" {
@@ -45,10 +41,7 @@ func (h *Handler) HandleActivateConnection(ctx *gin.Context) {
 func (h *Handler) HandleDeactivateConnection(ctx *gin.Context) {
 	session := sessions.Default(ctx)
 	userID := session.Get("user_id")
-	if userID == nil {
-		response.Unauthorized(ctx, "Authentication required")
-		return
-	}
+	
 	connID := ctx.Param("id")
 	if connID == "" {
 		response.BadRequest(ctx, "Connection ID is required", nil)

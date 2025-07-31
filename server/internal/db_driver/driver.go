@@ -130,3 +130,18 @@ func GetTableRecords(pool interface{}, dbType, dbName, tableName string) (interf
 		return nil, errors.New("unsupported database type: " + dbType)
 	}
 }
+
+func RunQuery(pool interface{}, dbType, dbName, query string) (interface{}, error) {
+	switch dbType {
+	case "postgresql":
+		return sql_.RunPostgresQuery(pool.(*pgxpool.Pool), query)
+	case "mysql":
+		return sql_.RunMySQLQuery(pool.(*sql.DB), query)
+	case "sqlite":
+		return sql_.RunSQLiteQuery(pool.(*sql.DB), query)
+	// case "mongodb":
+	// 	return nosql.RunMongoDBQuery(pool.(*mongo.Client), dbName, tableName, query)
+	default:
+		return nil, errors.New("unsupported database type: " + dbType)
+	}
+}
