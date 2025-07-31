@@ -15,6 +15,7 @@ type ResponseUser struct {
 	OAuthProvider string `json:"auth_provider"`
 }
 
+// InsertOneUser inserts a new user into the database and returns the created user.
 func InsertOneUser(client *supabase.Client, user *schema.User) (*ResponseUser, error) {
 	data, _, err := client.From("users").Insert(user, false, "", "representation", "exact").Single().Execute()
 	if err != nil {
@@ -35,6 +36,7 @@ func InsertOneUser(client *supabase.Client, user *schema.User) (*ResponseUser, e
 	}, nil
 }
 
+// GetUserByEmail retrieves a user by their email address and returns it as a ResponseUser.
 func GetUserByEmail(client *supabase.Client, email string) (*ResponseUser, error) {
 	data, count, err := client.From("users").Select("*", "", false).Eq("email", email).Single().Execute()
 	if err != nil {
@@ -56,6 +58,7 @@ func GetUserByEmail(client *supabase.Client, email string) (*ResponseUser, error
 	}, nil
 }
 
+// GetUserByID retrieves a user by their ID and returns it as a ResponseUser.
 func GetUserByID(client *supabase.Client, id string) (*ResponseUser, error) {
 	data, count, err := client.From("users").Select("*", "exact", false).Eq("id", id).Single().Execute()
 	if err != nil {
@@ -78,6 +81,7 @@ func GetUserByID(client *supabase.Client, id string) (*ResponseUser, error) {
 	}, nil
 }
 
+// CheckUserExists checks if a user exists by their email address.
 func CheckUserExists(client *supabase.Client, email string) (bool, error) {
 	user, err := GetUserByEmail(client, email)
 	if err != nil {

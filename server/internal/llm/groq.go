@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"regexp"
 )
 
 type groqMessage struct {
@@ -26,6 +27,7 @@ type groqResponse struct {
 	} `json:"choices"`
 }
 
+// GenerateQuery sends a request to the Groq API to generate a SQL query based on the provided system and user prompts.
 func GenerateQuery(systemPrompt, userPrompt, apiKey, model string) (string, error) {
 
 	reqBody := groqRequest{
@@ -71,9 +73,21 @@ func GenerateQuery(systemPrompt, userPrompt, apiKey, model string) (string, erro
 	return groqResp.Choices[0].Message.Content, nil
 }
 
+// GetTableNamesFromQuery extracts table names from a SQL query using a regex pattern.
 func GetTableNamesFromQuery(query string) ([]string, error) {
-	// This is a placeholder function. The actual implementation should parse the query
-	// and extract table names based on the SQL dialect.
-	// For now, we return an empty slice.
-	return []string{}, nil
+	// Regex to match table names in SQL queries as {table_name}
+	re := regexp.MustCompile(`\{\w+\}`)
+	matches := re.FindAllString(query, -1)
+	if matches == nil {
+		return nil, errors.New("no table names found in query")
+	}
+	tableNames := make([]string, len(matches))
+	for i, match := range matches {
+		tableNames[i] = match[1 : len(match)-1] // Remove the curly braces
+	}
+	if len(tableNames) == 0 {
+		return nil, errors.New("no valid table names found in query")
+	}
+
+	return tableNames, nil
 }

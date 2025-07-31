@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
+// RequireAuth is a middleware that checks if the user is authenticated by verifying the session.
 func RequireAuth() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		session := sessions.Default(ctx)

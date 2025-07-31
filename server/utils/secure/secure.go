@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// SetSessionCookie sets a session cookie with the provided data in the Gin context.
 func SetSessionCookie(ctx *gin.Context, data map[string]interface{}) error {
 	session := sessions.Default(ctx)
 	for key, value := range data {
@@ -23,6 +24,7 @@ func SetSessionCookie(ctx *gin.Context, data map[string]interface{}) error {
 	return nil
 }
 
+// Encrypt encrypts the provided data using AES encryption with the given secret key.
 func Encrypt(data, secretKey string) (string, error) {
 	block, err := aes.NewCipher([]byte(secretKey))
 	if err != nil {
@@ -43,6 +45,7 @@ func Encrypt(data, secretKey string) (string, error) {
 	return base64.URLEncoding.EncodeToString(cipherText), nil
 }	
 
+// Decrypt decrypts the provided encrypted data using AES decryption with the given secret key.
 func Decrypt(encryptedData, secretKey string) (string, error) {
 	cipherText, err := base64.URLEncoding.DecodeString(encryptedData)
 	if err != nil {

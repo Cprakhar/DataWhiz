@@ -1,10 +1,10 @@
 import { Connection } from "@/types/connection"
-import { Plug, Table } from "lucide-react"
+import { Bot, Plug, Table } from "lucide-react"
 
 interface SidebarNavigationProps {
   connections: Connection[]
-  activeTab: "connections" | "tables"
-  onTabChange: (tab: "connections" | "tables") => void
+  activeTab: "connections" | "tables" | "ai-assistant";
+  onTabChange: (tab: "connections" | "tables" | "ai-assistant") => void
 }
 
 export default function SidebarNavigation({connections, activeTab, onTabChange}: SidebarNavigationProps) {
@@ -37,6 +37,17 @@ export default function SidebarNavigation({connections, activeTab, onTabChange}:
       >
         <Table className="mr-2 h-6 w-6"/>
         <span className="font-medium">Tables/Records</span>
+      </button>
+      <button
+        onClick={() => onTabChange('ai-assistant')}
+        className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+        activeTab === 'ai-assistant'
+          ? 'bg-blue-50 text-blue-600'
+          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+        }`}
+      >
+        <Bot className="mr-2 h-6 w-6"/>
+        <span className="font-medium">AI Assistant</span>
       </button>
     </div>
   </nav>

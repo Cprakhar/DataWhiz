@@ -15,6 +15,7 @@ import (
 	"github.com/markbates/goth/providers/google"
 )
 
+// InitProviders initializes the OAuth providers with the necessary credentials.
 func (h *Handler) InitProviders() {
 	goth.UseProviders(
 		google.New(
@@ -32,7 +33,7 @@ func (h *Handler) InitProviders() {
 	)
 }
 
-
+// HandleOAuthSignIn initiates the OAuth sign-in process by redirecting to the provider's authentication page.
 func (h *Handler) HandleOAuthSignIn (ctx *gin.Context) {
 	provider := ctx.Query("provider")
 	log.Println(ctx.Request.URL)
@@ -41,6 +42,7 @@ func (h *Handler) HandleOAuthSignIn (ctx *gin.Context) {
 	gothic.BeginAuthHandler(ctx.Writer, req)
 }
 
+// HandleOAuthCallback handles the OAuth callback after the user has authenticated with the provider.
 func (h *Handler) HandleOAuthCallback(ctx *gin.Context) {
 	provider := ctx.Query("provider")
 	redirectURL := h.Cfg.Env.FrontendBaseURL + "/auth/oauth/callback?provider=" + provider

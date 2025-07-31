@@ -13,6 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
+// CreateConnectionString constructs a database connection string based on the provided connection form.
 func CreateConnectionString(conn *schema.ManualConnectionForm) (string, error) {
 	switch conn.DBType {
 	case "postgresql":
@@ -28,6 +29,7 @@ func CreateConnectionString(conn *schema.ManualConnectionForm) (string, error) {
 	}
 }
 
+// NewDBPool creates a new database connection pool based on the provided configuration and connection string.
 func NewDBPool(dbCfg *config.DBConfig, connStr, dbType string) (interface{}, error) {
 	switch dbType {
 	case "postgresql":
@@ -43,6 +45,7 @@ func NewDBPool(dbCfg *config.DBConfig, connStr, dbType string) (interface{}, err
 	}
 }
 
+// PingDB checks the connectivity to the database by pinging it.
 func PingDB(dbCfg *config.DBConfig, connString, dbType string) error {
 
 	pool, err := NewDBPool(dbCfg, connString, dbType)
@@ -72,6 +75,7 @@ func PingDB(dbCfg *config.DBConfig, connString, dbType string) error {
     }
 }
 
+// ExtractDBDetails extracts the connection details from a database connection string.
 func ExtractDBDetails(conn *schema.StringConnectionForm) (*schema.ManualConnectionForm, error) {
 	switch conn.DBType {
 	case "postgresql":
@@ -101,6 +105,7 @@ func ExtractDBTables(pool interface{}, dbType string) (interface{}, error) {
 	}
 }
 
+// GetTableSchema retrieves the schema of a specific table or collection in the database.
 func GetTableSchema(pool interface{}, dbType, dbName, tableName string) (interface{}, error) {
 	switch dbType {
 	case "postgresql":
@@ -116,6 +121,7 @@ func GetTableSchema(pool interface{}, dbType, dbName, tableName string) (interfa
 	}
 }
 
+// GetTableRecords retrieves the records of a specific table or collection in the database.
 func GetTableRecords(pool interface{}, dbType, dbName, tableName string) (interface{}, error) {
 	switch dbType {
 	case "postgresql":
@@ -131,6 +137,7 @@ func GetTableRecords(pool interface{}, dbType, dbName, tableName string) (interf
 	}
 }
 
+// RunQuery executes a query on the database and returns the result.
 func RunQuery(pool interface{}, dbType, dbName, query string) (interface{}, error) {
 	switch dbType {
 	case "postgresql":
@@ -144,4 +151,34 @@ func RunQuery(pool interface{}, dbType, dbName, query string) (interface{}, erro
 	default:
 		return nil, errors.New("unsupported database type: " + dbType)
 	}
+}
+
+// GetReleventTablesSchema retrieves the schema of relevant tables in the database.
+func GetReleventTablesSchema(pool interface{}, dbType string, tables []string) (map[string][]schema.ColumnSchema, error) {
+	result := make(map[string][]schema.ColumnSchema)
+	for _, table := range tables {
+		rawSchema, err := GetTableSchema(pool, dbType, "", table)
+		if err != nil {
+			return nil, err
+		}
+		if columns, ok := rawSchema.([]schema.ColumnSchema); ok {
+			result[table] = columns
+		} else {
+			return nil, errors.New("invalid schema format for table: " + table)
+		}
+
+		var filtered []schema.ColumnSchema
+		for _, col := range result[table] {
+			filtered = append(filtered, schema.ColumnSchema{
+				Name:             col.Name,
+				Type:             col.Type,
+				IsPrimaryKey: 	col.IsPrimaryKey,
+				IsForeignKey: 	col.IsForeignKey,
+				ForeignKeyTable: col.ForeignKeyTable,
+				ForeignKeyColumn: col.ForeignKeyColumn,
+			})
+		}
+		result[table] = filtered
+	}
+	return result, nil
 }

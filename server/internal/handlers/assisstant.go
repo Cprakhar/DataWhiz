@@ -14,6 +14,7 @@ type RequestQuery struct {
 	Query string `json:"query"`
 }
 
+// HandleGenerateQuery handles the generation of a SQL query based on a natural language input.
 func (h *Handler) HandleGenerateQuery(ctx *gin.Context) {
 	var req RequestQuery
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -27,13 +28,11 @@ func (h *Handler) HandleGenerateQuery(ctx *gin.Context) {
 		return
 	}
 	
-	tableName := ctx.Param("table_name")
-	if tableName == "" {
-		response.BadRequest(ctx, "Table name is required", nil)
+	tables, err := llm.GetTableNamesFromQuery(req.Query)
+	if err != nil {
+		response.BadRequest(ctx, "Invalid query format", err)
 		return
 	}
-
-	dbName := ctx.Query("db_name")
 
 	poolMgr, err := poolmanager.GetPool(connID)
 	if err != nil {
@@ -41,19 +40,13 @@ func (h *Handler) HandleGenerateQuery(ctx *gin.Context) {
 		return
 	}
 
-	tableSchema, err := dbdriver.GetTableSchema(poolMgr.Pool, poolMgr.DBType, dbName, tableName)
+	releventSchemas, err := dbdriver.GetReleventTablesSchema(poolMgr.Pool, poolMgr.DBType, tables)
 	if err != nil {
 		response.InternalError(ctx, err)
 		return
 	}
 
-	tables, err := dbdriver.ExtractDBTables(poolMgr.Pool, poolMgr.DBType)
-	if err != nil {
-		response.InternalError(ctx, err)
-		return
-	}
-
-	systemPrompt, err := llm.ConstructPromptSQL(tableSchema, tables, poolMgr.DBType)
+	systemPrompt, err := llm.ConstructPromptSQL(releventSchemas, tables, poolMgr.DBType)
 	if err != nil {
 		response.InternalError(ctx, err)
 		return

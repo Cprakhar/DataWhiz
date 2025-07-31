@@ -11,6 +11,7 @@ import (
 	"github.com/cprakhar/datawhiz/config"
 	"github.com/cprakhar/datawhiz/internal/database/connections"
 	dbdriver "github.com/cprakhar/datawhiz/internal/db_driver"
+	"github.com/cprakhar/datawhiz/utils/secure"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/supabase-community/supabase-go"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -48,12 +49,13 @@ func ActivateConnection(cfg *config.Config, connID, dbType, userID string) error
 		return nil
 	}
 
-	connString, err := connections.GetConnectionStringByID(cfg.DBClient, connID, userID)
+	encryptedConnString, err := connections.GetConnectionStringByID(cfg.DBClient, connID, userID)
 	if err != nil {
 		return err
 	}
-	if connString == "" {
-		return errors.New("connection string not found for connection ID: " + connID)
+	connString, err := secure.Decrypt(encryptedConnString, cfg.Env.EncryptionKey)
+	if err != nil {
+		return err
 	}
 
 	newPool, err := dbdriver.NewDBPool(cfg.DBConfig, connString, dbType)
@@ -124,6 +126,7 @@ func CleanupPools(client *supabase.Client) {
 	}
 }
 
+// ShutdownAllPools closes all active connection pools and sets all connections to inactive.
 func ShutdownAllPools(client *supabase.Client) {
 	poolMutex.Lock()
 	defer poolMutex.Unlock()

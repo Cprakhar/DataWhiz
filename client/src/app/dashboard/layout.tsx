@@ -8,11 +8,12 @@ import { useUserContext } from "@/context/UserContext";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import useConnectionsTab from "@/hooks/useConnectionsTab";
+import AIAssistantTab from "@/components/ai-assistant/AssistantTab";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading: userLoading } = useUserContext();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'connections' | 'tables'>('connections');
+  const [activeTab, setActiveTab] = useState<'connections' | 'tables' | 'ai-assistant'>('connections');
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const {
     connections, 
@@ -65,9 +66,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             />
         ) : activeTab === 'tables' ? (
           <TablesTab  databases={connections}/>
-        ) : (
-          children
-        )}
+        ) : activeTab === 'ai-assistant' ? (
+          <AIAssistantTab databases={connections} />
+        ) : children 
+        }
       </div>
     </div>
   );

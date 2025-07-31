@@ -32,18 +32,22 @@ const ColumnSchema = ({columns}: ColumnSchemaProps) => {
               </td>
               <td className="px-3 py-2 text-sm text-slate-600 font-mono whitespace-nowrap max-w-xs truncate">{column.type}</td>
               <td className="px-3 py-2 text-sm text-center">
+              <div className="flex flex-row items-center justify-center">
                 {column.is_primary_key ? (
                   <Check className="text-green-500 h-4 w-4" />
                 ) : (
                   <span className="text-slate-400">-</span>
                 )}
+              </div>
               </td>
               <td className="px-3 py-2 text-sm text-center">
+              <div className="flex flex-row items-center justify-center">
                 {column.is_nullable ? (
                   <Check className="text-green-500 h-4 w-4" />
                 ) : (
                   <X className="text-red-500 h-4 w-4"/>
                 )}
+              </div>
               </td>
               <td className="px-3 py-2 text-sm text-slate-600 font-mono whitespace-nowrap">
                 {normalizeDefaultValue(column.default_value) || <span className="text-slate-400">NULL</span>}

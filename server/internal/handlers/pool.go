@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// HandleActivateConnection activates a connection by its ID for the authenticated user.
 func (h *Handler) HandleActivateConnection(ctx *gin.Context) {
 	session := sessions.Default(ctx)
 	userID := session.Get("user_id")
@@ -38,6 +39,7 @@ func (h *Handler) HandleActivateConnection(ctx *gin.Context) {
 	response.OK(ctx, "Connection activated successfully")
 }
 
+// HandleDeactivateConnection deactivates a connection by its ID for the authenticated user.
 func (h *Handler) HandleDeactivateConnection(ctx *gin.Context) {
 	session := sessions.Default(ctx)
 	userID := session.Get("user_id")

@@ -5,7 +5,7 @@ import { getDBIcon, getDBColor } from "@/utils/connection";
 import Image from "next/image";
 
 interface DBSelectorProps {
-  setSelectedTable: Dispatch<SetStateAction<string | null>>;
+  setSelectedTable?: Dispatch<SetStateAction<string | null>>;
   databases: Connection[];
   onDatabaseChange: Dispatch<SetStateAction<{connID: string, dbType: string} | null>>;
   selectedDatabase: {connID: string, dbType: string} | null;
@@ -23,7 +23,7 @@ const DBSelector = ({databases, selectedDatabase, onDatabaseChange, setSelectedT
           const db = activeDatabases.find(db => db.id === val);
           if (db) {
             onDatabaseChange({connID: db.id, dbType: db.dbType});
-            setSelectedTable(null); // Reset selected table when database changes
+            if (setSelectedTable) setSelectedTable(null); // Reset selected table when database changes
           } else {
             onDatabaseChange(null);
           }

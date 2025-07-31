@@ -7,8 +7,8 @@ import { Connection } from "@/types/connection";
 interface SidebarProps {
   onClose: () => void
   connections: Connection[];
-  activeTab: 'connections' | 'tables';
-  onTabChange: (tab: 'connections' | 'tables') => void;
+  activeTab: 'connections' | 'tables' | 'ai-assistant';
+  onTabChange: (tab: 'connections' | 'tables' | 'ai-assistant') => void;
 }
 
 export default function Sidebar({connections, activeTab, onClose, onTabChange }: SidebarProps) {

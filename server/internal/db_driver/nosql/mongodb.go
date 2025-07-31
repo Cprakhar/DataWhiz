@@ -13,6 +13,11 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
+type MongoDBCollection struct {
+	DBName      string   `json:"dbName"`
+	Collections []string `json:"collections"`
+}
+
 // PingMongoDB pings the MongoDB server to check if it's reachable.
 func PingMongoDB(pool *mongo.Client) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -44,6 +49,7 @@ func NewMongoDBPool(dbCfg *config.DBConfig, connStr string) (*mongo.Client, erro
 	return pool, nil
 }
 
+// CreateMongoDBConnectionString constructs a MongoDB connection string from the provided connection form.
 func CreateMongoDBConnectionString(conn *schema.ManualConnectionForm) (string, error) {
 	if conn.Host == "" {
 		conn.Host = "localhost"
@@ -64,6 +70,7 @@ func CreateMongoDBConnectionString(conn *schema.ManualConnectionForm) (string, e
 	return connStr, nil
 }
 
+// ExtractMongoDBDetails extracts the connection details from a MongoDB connection string.
 func ExtractMongoDBDetails(conn *schema.StringConnectionForm) (*schema.ManualConnectionForm, error) {
 	// Assuming the connection string is in the format:
 	// mongodb://username:password@host:port/dbname?ssl=require|disable
@@ -114,11 +121,6 @@ func ExtractMongoDBDetails(conn *schema.StringConnectionForm) (*schema.ManualCon
 	return connDetails, nil
 }
 
-type MongoDBCollection struct {
-	DBName      string   `json:"dbName"`
-	Collections []string `json:"collections"`
-}
-
 // GetMongoDBCollections retrieves all collections from all databases in the MongoDB pool.
 func GetMongoDBCollections(pool *mongo.Client) ([]MongoDBCollection, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -152,6 +154,7 @@ func GetMongoDBCollections(pool *mongo.Client) ([]MongoDBCollection, error) {
 	return result, nil
 }
 
+// GetMongoDBCollectionSchema retrieves the schema of a MongoDB collection by sampling documents.
 func GetMongoDBCollectionSchema(pool *mongo.Client, dbName, collectionName string) (interface{}, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -296,6 +299,7 @@ func GetMongoDBCollectionSchema(pool *mongo.Client, dbName, collectionName strin
 	return schema, nil
 }
 
+// GetMongoDBCollectionRecords retrieves the records of a specific collection in the MongoDB database.
 func GetMongoDBCollectionRecords(pool *mongo.Client, dbName, collectionName string) ([]map[string]interface{}, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

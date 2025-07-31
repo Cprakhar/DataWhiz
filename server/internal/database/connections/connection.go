@@ -82,6 +82,7 @@ func CheckConnectionExists(client *supabase.Client, req *schema.ManualConnection
 	return conn.ID != "", nil
 }
 
+// GetConnectionsByUserID retrieves all connections for a given user ID and returns them as a slice of ResponseConnection.
 func GetConnectionsByUserID(client *supabase.Client, userID string) ([]ResponseConnection, error) {
 	data, _, err := client.From("connections").Select("*", "", false).Eq("user_id", userID).Execute()
 	if err != nil {
@@ -114,6 +115,7 @@ func GetConnectionsByUserID(client *supabase.Client, userID string) ([]ResponseC
 	return response, nil
 }
 
+// DeleteConnection deletes a connection by its ID and user ID.
 func DeleteConnection(client *supabase.Client, id, userID string) error {
 	_, _, err := client.From("connections").Delete("minimal", "").Eq("id", id).Eq("user_id", userID).Single().Execute()
 	if err != nil {
@@ -123,6 +125,7 @@ func DeleteConnection(client *supabase.Client, id, userID string) error {
 	return nil
 }
 
+// GetConnectionStringByID retrieves the connection string for a specific connection ID and user ID.
 func GetConnectionStringByID(client *supabase.Client, id, userID string) (string, error) {
 	data, count, err := client.From("connections").Select("connection_string", "exact", false).
 		Eq("id", id).
@@ -145,6 +148,7 @@ func GetConnectionStringByID(client *supabase.Client, id, userID string) (string
 	return result.ConnString, nil
 }
 
+// SetConnectionActive updates the is_active status of a connection for a specific user.
 func SetConnectionActive(client *supabase.Client, id, userID string, isActive bool) error {
 	_, count, err := client.From("connections").
 		Update(map[string]interface{}{"is_active": isActive,}, "minimal", "exact").
@@ -159,6 +163,7 @@ func SetConnectionActive(client *supabase.Client, id, userID string, isActive bo
 	return nil
 }
 
+// GetConnectionByID retrieves a connection by its ID and user ID, returning it as a ResponseConnection.
 func GetConnectionByID(client *supabase.Client, id, userID string) (*ResponseConnection, error) {
 	data, count, err := client.From("connections").Select("*", "exact", false).
 		Eq("id", id).Eq("user_id", userID).Single().Execute()
@@ -187,6 +192,7 @@ func GetConnectionByID(client *supabase.Client, id, userID string) (*ResponseCon
 	}, nil
 }
 
+// SetAllConnectionsInactive sets all connections for the user to inactive.
 func SetAllConnectionsInactive(client *supabase.Client) error {
 	_, count, err := client.From("connections").
 		Update(map[string]interface{}{"is_active" : false,}, "minimal", "exact").

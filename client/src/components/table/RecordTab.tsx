@@ -1,5 +1,5 @@
 import { ColumnSchema } from "@/hooks/useTablesTab";
-import { Inbox } from "lucide-react";
+import { Inbox, Key, Link } from "lucide-react";
 import React from "react";
 
 interface RecordTabProps {
@@ -31,16 +31,18 @@ const RecordTab = ({columns, recordsData, selectedDatabase}: RecordTabProps) => 
                     key={col.name}
                     className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
                   >
+                    <div className="flex flex-row items-center justify-start">
                   {col.name}
                   {col.is_primary_key && (
-                    <span className="ml-1 text-emerald-500" title="Primary Key">★</span>
+                    <Key className="ml-1 text-yellow-500 h-3 w-3" />
                   )}
                   {col.is_unique && !col.is_primary_key && (
                     <span className="ml-1 text-blue-500" title="Unique">⧉</span>
                   )}
                   {col.is_foreign_key && (
-                    <span className="ml-1 text-purple-500" title={`Foreign Key → ${col.foreign_key_table}(${col.foreign_key_column})`}>⇄</span>
+                    <Link className="ml-1 text-blue-500 h-3 w-3" />
                   )}
+                  </div>
                   </th>
                 ))}
               </tr>

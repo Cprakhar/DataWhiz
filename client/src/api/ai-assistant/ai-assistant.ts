@@ -1,7 +1,7 @@
 import { AppError } from "@/types/error";
 
-export const GenerateQuery = async (connID: string, tableName: string, query: string) => {
-  const res = await fetch(`/api/query/${connID}/${tableName}/generate`, {
+export const GenerateQuery = async (connID: string, query: string) => {
+  const res = await fetch(`/api/query/${connID}/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

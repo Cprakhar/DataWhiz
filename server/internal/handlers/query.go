@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// HandleExecuteQuery executes a SQL query on the specified connection and returns the results.
 func (h *Handler) HandleExecuteQuery(ctx *gin.Context) {
 	var req RequestQuery
 	if err := ctx.ShouldBindJSON(&req); err != nil {

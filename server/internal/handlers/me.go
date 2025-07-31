@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// HandleMe retrieves the current user's information based on the session.
 func (h *Handler) HandleMe(ctx *gin.Context) {
 	session := sessions.Default(ctx)
 	userID := session.Get("user_id")

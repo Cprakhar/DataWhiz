@@ -6,7 +6,7 @@ import { PanelLeftOpen, PanelLeftClose } from "lucide-react";
 interface DashboardHeaderProps {
   sidebarVisible: boolean;
   setSidebarVisible: (visible: boolean) => void;
-  activeTab: 'connections' | 'tables';
+  activeTab: 'connections' | 'tables' | 'ai-assistant';
 }
 
 export default function DashboardHeader({ sidebarVisible, setSidebarVisible, activeTab }: DashboardHeaderProps) {
@@ -34,7 +34,11 @@ export default function DashboardHeader({ sidebarVisible, setSidebarVisible, act
           <p className="text-sm text-slate-600">
             {activeTab === 'connections'
               ? 'Manage your database connections'
-              : 'Browse database tables and view records'}
+              : activeTab === 'tables'
+              ? 'Browse database tables and view records'
+              : activeTab === 'ai-assistant'
+              ? 'Ask questions and generate SQL queries using AI'
+              : ''}
           </p>
         </div>
       </div>

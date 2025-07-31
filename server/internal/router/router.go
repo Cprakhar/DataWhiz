@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// NewRouter initializes the Gin router with the necessary routes and middleware.
 func NewRouter(cfg *config.Config) *gin.Engine {
 	router := gin.Default()
 
@@ -63,7 +64,7 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 	api.GET("/tables/:id/:table_name/schema", middleware.RequireAuth(), h.HandleGetTableSchema)
 	api.GET("/tables/:id/:table_name/records", middleware.RequireAuth(), h.HandleGetTableRecords)
 
-	api.POST("/query/:id/:table_name/generate", middleware.RequireAuth(), h.HandleGenerateQuery)
+	api.POST("/query/:id/generate", middleware.RequireAuth(), h.HandleGenerateQuery)
 	api.POST("/query/:id/execute", middleware.RequireAuth(), h.HandleExecuteQuery)
 	return router
 }

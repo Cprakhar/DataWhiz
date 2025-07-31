@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// HandleGetTables retrieves the list of tables from the database for the specified connection.
 func (h *Handler) HandleGetTables(ctx *gin.Context) {
 	connID := ctx.Param("id")
 	if connID == "" {
@@ -31,6 +32,7 @@ func (h *Handler) HandleGetTables(ctx *gin.Context) {
 	response.JSON(ctx, http.StatusOK, "Tables retrieved successfully", tables)
 }
 
+// HandleGetTableSchema retrieves the schema of a specific table from the database for the specified connection.
 func (h* Handler) HandleGetTableSchema(ctx *gin.Context) {
 	connID := ctx.Param("id")
 	if connID == "" {
@@ -61,6 +63,7 @@ func (h* Handler) HandleGetTableSchema(ctx *gin.Context) {
 	response.JSON(ctx, http.StatusOK, "Table schema retrieved successfully", schema)
 } 
 
+// HandleGetTableRecords retrieves the records of a specific table from the database for the specified connection.
 func (h *Handler) HandleGetTableRecords(ctx *gin.Context) {
 	connID := ctx.Param("id")
 	if connID == "" {

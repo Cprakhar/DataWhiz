@@ -25,6 +25,7 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
+// HandleRegister handles user registration by creating a new user in the database.
 func (h *Handler) HandleRegister (ctx *gin.Context) {
 	var req RegisterRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -60,6 +61,7 @@ func (h *Handler) HandleRegister (ctx *gin.Context) {
 	response.JSON(ctx, http.StatusCreated, "User registered successfully", createdUser)
 }
 
+// HandleLogin handles user login by validating credentials and setting a session cookie.
 func (h *Handler) HandleLogin (ctx *gin.Context) {
 	var req LoginRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -113,6 +115,7 @@ func (h *Handler) HandleLogin (ctx *gin.Context) {
 	response.JSON(ctx, http.StatusOK, "User logged in successfully", safeUser)
 }
 
+// HandleLogout handles user logout by clearing the session cookie.
 func (h *Handler) HandleLogout(ctx *gin.Context) {
 	session := sessions.Default(ctx)
 	session.Clear()

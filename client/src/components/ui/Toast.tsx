@@ -66,6 +66,8 @@ export const CustomToast: React.FC<CustomToastProps> = ({ closeToast, data }) =>
 
 
 export const DefaultToastOptions: ToastOptions = {
+  draggable: true,
+  pauseOnFocusLoss: false,
   pauseOnHover: false,
   autoClose: 5000,
   closeOnClick: true,
