@@ -1,6 +1,6 @@
 import { ArrowRight, Link } from "lucide-react";
 
-interface FKDetail {
+export interface FKDetail {
   column: string;
   references: string;
   onDelete?: string;

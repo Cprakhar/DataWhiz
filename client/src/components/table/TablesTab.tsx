@@ -2,14 +2,13 @@ import TablesList from "./TableList";
 import useTablesTab, { MongoDBTables, SQLTables } from "@/hooks/useTablesTab";
 import DBSelector from "./DBSelector";
 import { Connection } from "@/types/connection";
-import Indexes from "./Indexes";
 import TabHeader from "./TabHeader";
-import ColumnSchema from "./ColumnSchema";
-import ForeignKey from "./ForeignKey";
 import RecordTab from "./RecordTab";
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { getForeignKeysFromColumns, getIndexesFromColumns } from "@/utils/table";
-import { Inbox, MousePointer } from "lucide-react";
+import { MousePointer } from "lucide-react";
+import SchemaTab from "./SchemaTab";
+import TableTabLoading from "./Loading";
 
 
 interface TablesTabProps {
@@ -20,6 +19,7 @@ const TablesTab = ({databases} : TablesTabProps) => {
   const {
     tables, 
     loading,
+    fetchLoading,
     selectedTable,
     selectedDatabase,
     tableSchema,
@@ -34,9 +34,10 @@ const TablesTab = ({databases} : TablesTabProps) => {
   useEffect(() => {
     if (selectedDatabase && selectedDatabase.dbType !== "mongodb" && selectedTable) {
       handleGetTableSchemaAndRecords();
+    } else if (selectedDatabase && selectedDatabase.dbType === "mongodb" && selectedTable) {
+      handleGetMongoSchemaAndRecords(selectedTable);
     }
-  }, [selectedDatabase, selectedTable, handleGetTableSchemaAndRecords]);
-
+  }, [selectedDatabase, selectedTable, handleGetTableSchemaAndRecords, handleGetMongoSchemaAndRecords]);
 
   const [activeTab, setActiveTab] = useState<'records' | 'schema'>('records');
   const selectedConnection = databases.find(conn => conn.id === selectedDatabase?.connID);
@@ -57,104 +58,72 @@ const TablesTab = ({databases} : TablesTabProps) => {
 
   return (
     <div className="p-6 max-w-full overflow-hidden">
-      {/* Database Selector */}
-      <DBSelector
-        databases={databases} 
-        onDatabaseChange={setSelectedDatabase}
-        selectedDatabase={selectedDatabase}
-      />
+      <div className="flex gap-6 min-w-0">
+      {/* Left column: DBSelector and TablesList */}
+        <div className="flex flex-col min-w-[18rem] max-w-xs w-full">
+        {/* Database Selector */}
+        <DBSelector
+          databases={databases} 
+          onDatabaseChange={setSelectedDatabase}
+          selectedDatabase={selectedDatabase}
+          setSelectedTable={setSelectedTable}
+        />
       
-      {/* Tables List */}
-      <TablesList
-        dbType={dbType ?? ""}
-        displayTables={displayTables} 
-        mongoTreeData={mongoTreeData}
-        selectedDatabase={selectedDatabase} 
-        selectedTable={selectedTable}
-        setActiveTab={(tab) => setActiveTab(tab)}
-        setSelectedTable={setSelectedTable}
-      />
+        {/* Tables List */}
+        <TablesList
+          loading={loading}
+          dbType={dbType ?? ""}
+          displayTables={displayTables} 
+          mongoTreeData={mongoTreeData}
+          selectedDatabase={selectedDatabase} 
+          selectedTable={selectedTable}
+          setActiveTab={(tab) => setActiveTab(tab)}
+          setSelectedTable={setSelectedTable}
+        />
+      </div>
       
-
-        {/* Records & Schema Viewer */}
+      {/* Right column: Records & Schema Viewer */}
+      <div className="flex-1 min-w-0 mt-6">
         <div className="flex-1 min-w-0">
           <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-            {/* Tab Header  */}
             <TabHeader
-              selectedTable={selectedTable}
               activeTab={activeTab}
               setActiveTab={(tab) => setActiveTab(tab)}
-              selectedDatabase={selectedDatabase}
             />
-            
-            {/* Tab Content */}
+                
+            {fetchLoading ? (
+              <TableTabLoading />
+            ) : (
+              <>
             {!selectedTable ? (
-              <div className="px-4 py-12 text-center">
-                <MousePointer className="h-10 w-10 mb-2 text-slate-400" />
+              <div className="px-4 py-[4.5rem] text-center flex flex-col items-center justify-center">
+                <MousePointer className="h-8 w-8 mb-2 text-slate-400" />
                 <p className="text-slate-500">Select a table to view its records and schema</p>
               </div>
             ) : (
               <div>
-                {/* Records Tab */}
-                {activeTab === 'records' && (
-                  <div>
-                    {tableSchema.recordsData.length === 0 ? (
-                      <div className="px-4 py-12 text-center">
-                        <Inbox className="h-10 w-10 mb-2 text-slate-400" />
-                        <p className="text-slate-500">
-                          {selectedDatabase 
-                            ? 'No records found in this table' 
-                            : 'Connect to a real database to view actual records'
-                          }
-                        </p>
-                      </div>
-                    ) : (
-                      <RecordTab 
-                        columns={tableSchema.columnSchema} 
-                        records={tableSchema.recordsData}
-                      />
-                    )}
-                  </div>
-                )}
+              {/* Records Tab */}
+              {activeTab === 'records' && (
+                <RecordTab 
+                  selectedDatabase={selectedDatabase}
+                  columns={tableSchema.columnSchema} 
+                  recordsData={dbType === "mongodb" ? mongoRecords : tableSchema.recordsData} 
+                />
+              )}
 
-                {/* Schema Tab */}
-                {activeTab === 'schema' && (
-                  <div className="p-4">
-                    {isNoSqlDatabase ? null : (
-                      <div>
-                        <div className="mb-4">
-                          <h4 className="text-sm font-medium text-slate-700 mb-2">Table Schema</h4>
-                          <p className="text-xs text-slate-500 mb-4">
-                            Column definitions, constraints, and relationships
-                          </p>
-                        </div>
-                        
-                        {/* Columns */}
-                        <ColumnSchema columns={tableSchema.columnSchema} />
-
-                        {/* Foreign Keys */}
-                        {foreignKeys && foreignKeys.length > 0 && (
-                          <ForeignKey foreignKeys={foreignKeys} />
-                        )}
-
-                        {/* Indexes */}
-                        {indexes && indexes.length > 0 && (
-                          <Indexes indexes={indexes} />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+              {/* Schema Tab */}
+              {activeTab === 'schema' && (
+                <SchemaTab isNoSqlDatabase={isNoSqlDatabase} mongoSchema={mongoSchema} columnSchema={tableSchema.columnSchema} foreignKeys={foreignKeys} indexes={indexes}/>
+              )}
+            </div>
+          )}
+          </>)}
           </div>
         </div>
       </div>
+    </div>
+  </div>
   );
 }
-
-// const TablesTab = () => {
-//   return "Tables Tab"
-// }
 
 export default TablesTab

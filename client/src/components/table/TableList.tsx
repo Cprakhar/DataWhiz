@@ -3,8 +3,10 @@ import { Dispatch, SetStateAction, useEffect } from "react";
 import SQLTablesList from "./SQLTablesList";
 import MongoDBTree from "./MongoDBTree";
 import { MongoDBTables, SQLTables } from "@/hooks/useTablesTab";
+import { Database, Table2 } from "lucide-react";
 
 interface TablesListProps {
+  loading: boolean;
   dbType: string;
   selectedDatabase: {connID: string, dbType: string} | null;
   displayTables?: SQLTables
@@ -14,9 +16,30 @@ interface TablesListProps {
   mongoTreeData?: MongoDBTables;
 }
 
-
+// Skeleton component for loading state
+export const TableListSkeleton = () => (
+  <div className="flex flex-col lg:flex-row gap-6 min-w-0 animate-pulse">
+    <div className="lg:w-80 flex-shrink-0">
+      <div className="bg-white rounded-xl shadow border border-slate-200">
+        <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2">
+          <div className="h-5 w-5 bg-slate-200 rounded-full" />
+          <div className="h-4 w-24 bg-slate-200 rounded" />
+        </div>
+        <div className="max-h-96 overflow-y-auto px-2 py-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 py-2">
+              <div className="h-4 w-4 bg-slate-200 rounded" />
+              <div className="h-4 w-32 bg-slate-200 rounded" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 const TablesList = ({
+  loading,
   dbType,
   selectedDatabase,
   displayTables,
@@ -28,10 +51,11 @@ const TablesList = ({
   // Reset selectedTable when TablesTab is activated
   useEffect(() => {
     setSelectedTable(null);
-    // Only run on mount or when TablesTab is shown
-    // If you have a tab state, you can add it to the dependency array
-    // e.g. [isTablesTabActive]
   }, [setSelectedTable]);
+
+  if (loading) {
+    return <TableListSkeleton />;
+  }
 
   if (dbType === "mongodb" && mongoTreeData) {
     const isEmpty = !mongoTreeData || Object.keys(mongoTreeData).length === 0;
@@ -46,7 +70,7 @@ const TablesList = ({
             <div className="max-h-96 overflow-y-auto px-2 py-2">
               {isEmpty ? (
                 <div className="flex flex-col items-center justify-center h-40 text-slate-400">
-                  <svg className="h-10 w-10 mb-2" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M9 10h6M12 13v-3" /></svg>
+                  <Database className="h-6 w-6 mb-2" />
                   <span className="text-sm">No collections found</span>
                 </div>
               ) : (
@@ -55,16 +79,7 @@ const TablesList = ({
             </div>
           </div>
         </div>
-        {/* Details/Empty state for selection */}
-        <div className="flex-1 flex items-center justify-center min-h-[12rem]">
-          {!selectedTable && (
-            <div className="flex flex-col items-center text-slate-400">
-              <svg className="h-12 w-12 mb-2" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M9 10h6M12 13v-3" /></svg>
-              <span className="text-base">Select a collection to view details</span>
-            </div>
-          )}
         </div>
-      </div>
     );
   }
   // Default: SQL
@@ -80,7 +95,7 @@ const TablesList = ({
           <div className="max-h-96 overflow-y-auto">
             {isEmpty ? (
               <div className="flex flex-col items-center justify-center h-40 text-slate-400">
-                <svg className="h-10 w-10 mb-2" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M9 10h6M12 13v-3" /></svg>
+                <Table2 className="h-6 w-6 mb-2" />
                 <span className="text-sm">No tables found</span>
               </div>
             ) : (
@@ -95,16 +110,7 @@ const TablesList = ({
           </div>
         </div>
       </div>
-      {/* Details/Empty state for selection */}
-      <div className="flex-1 flex items-center justify-center min-h-[12rem]">
-        {!selectedTable && !isEmpty && (
-          <div className="flex flex-col items-center text-slate-400">
-            <svg className="h-12 w-12 mb-2" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M9 10h6M12 13v-3" /></svg>
-            <span className="text-base">Select a table to view details</span>
-          </div>
-        )}
       </div>
-    </div>
   );
 }
 

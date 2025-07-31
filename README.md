@@ -1,5 +1,3 @@
-yarn dev
-
 # Datawhiz Monorepo
 
 This is a fullstack monorepo for Datawhiz, containing:
