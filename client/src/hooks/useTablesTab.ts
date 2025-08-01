@@ -2,10 +2,13 @@ import { GetTableRecords, GetTables, GetTableSchema } from "@/api/table/table"
 import { DefaultToastOptions, showToast } from "@/components/ui/Toast"
 import { AppError } from "@/types/error"
 import { useCallback, useEffect, useState } from "react"
+import { inferMongoDBSchemaType } from "@/utils/table"
 
 export type SQLTables = string[];
 export type MongoDBTables = { [dbName: string]: string[] };
 export type TablesData = SQLTables | MongoDBTables;
+export type MongoSchema = string | MongoSchema[] | { [key: string]: MongoSchema };
+
 
 export interface ColumnSchema {
   name: string;
@@ -32,7 +35,7 @@ const useTablesTab = () => {
     recordsData: Record<string, string>[];
   }>({ columnSchema: [], recordsData: [] });
 
-  const [mongoSchema, setMongoSchema] = useState<Record<string, unknown>>({});
+  const [mongoSchema, setMongoSchema] = useState<MongoSchema>({});
   const [mongoRecords, setMongoRecords] = useState<Record<string, unknown>[]>([]);
 
 
@@ -65,8 +68,8 @@ const useTablesTab = () => {
   const handleGetTableSchemaAndRecords = useCallback(async () => {
     setFetchLoading(true)
     try {
-      const schemaRes = await GetTableSchema(selectedDatabase?.connID || "", selectedDatabase?.dbType || "", selectedTable || "")
-      const recordsRes = await GetTableRecords(selectedDatabase?.connID || "", selectedDatabase?.dbType || "", selectedTable || "")
+      const schemaRes = await GetTableSchema(selectedDatabase?.connID || "", "", selectedTable || "")
+      const recordsRes = await GetTableRecords(selectedDatabase?.connID || "", "", selectedTable || "")
       setTableSchema({
         columnSchema: schemaRes.data,
         recordsData: recordsRes.data
@@ -84,14 +87,75 @@ const useTablesTab = () => {
     }
   }, [selectedDatabase, selectedTable]);
 
-  const handleGetMongoSchemaAndRecords = useCallback(async (collectionName: string) => {
+
+  const buildMongoSchema = useCallback((records: Record<string, unknown>[]): MongoSchema => {
+    // Recursively merge types for each field
+    const mergeTypes = (a: MongoSchema, b: MongoSchema): MongoSchema => {
+      if (typeof a === "object" && a !== null && typeof b === "object" && b !== null && !Array.isArray(a) && !Array.isArray(b)) {
+        const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+        const out: { [key: string]: MongoSchema } = {};
+        for (const k of keys) {
+          if (k in a && k in b) {
+            out[k] = mergeTypes((a as { [key: string]: MongoSchema })[k], (b as { [key: string]: MongoSchema })[k]);
+          } else if (k in a) {
+            out[k] = (a as { [key: string]: MongoSchema })[k];
+          } else {
+            out[k] = (b as { [key: string]: MongoSchema })[k];
+          }
+        }
+        return out;
+      } else if (Array.isArray(a) && Array.isArray(b)) {
+        // merge array types
+        const types = Array.from(new Set([...(a as MongoSchema[]), ...(b as MongoSchema[])]));
+        return types;
+      } else if (typeof a === "string" && typeof b === "string") {
+        if (a === b) return a;
+        return Array.from(new Set([a, b])) as MongoSchema[];
+      } else if (typeof a === "string" && Array.isArray(b)) {
+        return Array.from(new Set([a, ...(b as MongoSchema[])]));
+      } else if (Array.isArray(a) && typeof b === "string") {
+        return Array.from(new Set([...(a as MongoSchema[]), b]));
+      } else {
+        return [a, b];
+      }
+    };
+
+    const inferRec = (val: unknown): MongoSchema => {
+      if (Array.isArray(val)) {
+        if (val.length === 0) return "array[unknown]";
+        // merge all element types
+        const types = Array.from(new Set(val.map(inferRec)));
+        return `array[${types.join("|")}]`;
+      } else if (val && typeof val === "object") {
+        const out: { [key: string]: MongoSchema } = {};
+        for (const k in val as Record<string, unknown>) {
+          out[k] = inferRec((val as Record<string, unknown>)[k]);
+        }
+        return out;
+      } else {
+        return inferMongoDBSchemaType(val);
+      }
+    };
+
+    if (!records || records.length === 0) return {};
+    let schema: MongoSchema = inferRec(records[0]);
+    for (let i = 1; i < records.length; i++) {
+      schema = mergeTypes(schema, inferRec(records[i]));
+    }
+    return schema;
+  }, [])
+
+  const handleGetMongoSchemaAndRecords = useCallback(async () => {
+    const dbName = selectedTable?.split('.')[0] || "";
+    const collectionName = selectedTable?.split('.').pop() || "";
+    if (!selectedDatabase || !dbName || !collectionName) return;
     setFetchLoading(true)
     try {
-      const schemaRes = await GetTableSchema(selectedDatabase?.connID || "", selectedDatabase?.dbType || "", collectionName)
-      setMongoSchema(schemaRes.data);
-
-      const recordsRes = await GetTableRecords(selectedDatabase?.connID || "", selectedDatabase?.dbType || "", collectionName)
+      const recordsRes = await GetTableRecords(selectedDatabase?.connID || "", dbName, collectionName)
       setMongoRecords(recordsRes.data);
+      // Build schema from records
+      const schema = buildMongoSchema(recordsRes.data);
+      setMongoSchema(schema);
       setFetchLoading(false)
     } catch (err) {
       let errMsg = "An unexpected error occurred."
@@ -103,7 +167,7 @@ const useTablesTab = () => {
       })
       setFetchLoading(false)
     }
-  }, [selectedDatabase]);
+  }, [selectedDatabase, selectedTable, buildMongoSchema]);
 
 
   useEffect(() => {

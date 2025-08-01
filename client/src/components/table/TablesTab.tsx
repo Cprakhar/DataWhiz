@@ -3,7 +3,7 @@ import useTablesTab, { MongoDBTables, SQLTables } from "@/hooks/useTablesTab";
 import DBSelector from "./DBSelector";
 import { Connection } from "@/types/connection";
 import TabHeader from "./TabHeader";
-import RecordTab from "./RecordTab";
+import RecordTab, { ColumnInfo } from "./RecordTab";
 import { useEffect, useState } from "react";
 import { getForeignKeysFromColumns, getIndexesFromColumns } from "@/utils/table";
 import { MousePointer } from "lucide-react";
@@ -35,7 +35,7 @@ const TablesTab = ({databases} : TablesTabProps) => {
     if (selectedDatabase && selectedDatabase.dbType !== "mongodb" && selectedTable) {
       handleGetTableSchemaAndRecords();
     } else if (selectedDatabase && selectedDatabase.dbType === "mongodb" && selectedTable) {
-      handleGetMongoSchemaAndRecords(selectedTable);
+      handleGetMongoSchemaAndRecords();
     }
   }, [selectedDatabase, selectedTable, handleGetTableSchemaAndRecords, handleGetMongoSchemaAndRecords]);
 
@@ -55,6 +55,13 @@ const TablesTab = ({databases} : TablesTabProps) => {
   const foreignKeys = getForeignKeysFromColumns(tableSchema.columnSchema)
   const indexes = getIndexesFromColumns(tableSchema.columnSchema)
   const isNoSqlDatabase = dbType === "mongodb";
+
+  const recordColumns: ColumnInfo[] = tableSchema.columnSchema.map(col => ({
+    name: col.name,
+    is_primary_key: col.is_primary_key ?? false,
+    is_unique: col.is_unique ?? false,
+    is_foreign_key: col.is_foreign_key ?? false,
+  }));
 
   return (
     <div className="p-6 max-w-full overflow-hidden">
@@ -106,8 +113,10 @@ const TablesTab = ({databases} : TablesTabProps) => {
               {activeTab === 'records' && (
                 <RecordTab 
                   selectedDatabase={selectedDatabase}
-                  columns={tableSchema.columnSchema} 
-                  recordsData={dbType === "mongodb" ? mongoRecords : tableSchema.recordsData} 
+                  columns={recordColumns} 
+                  recordsData={tableSchema.recordsData} 
+                  mongoRecords={mongoRecords}
+                  isNosqlDatabase={isNoSqlDatabase}
                 />
               )}
 

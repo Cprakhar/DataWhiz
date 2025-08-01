@@ -54,3 +54,36 @@ export function normalizeDefaultValue(val: unknown): string | null {
   }
   return String(val);
 }
+
+export function inferMongoDBSchemaType(value: unknown): string {
+  if (typeof value === "string" && value === "_id") return "objectid";
+  if (value === null || value === undefined) return "null";
+  if (typeof value === "object" && value !== null) {
+    if ("$oid" in value) return "objectid";
+    if ("$date" in value) return "date";
+    // MongoDB ISODate string
+    if (Object.keys(value).length === 1 && "$date" in value) return "date";
+    // If object has only _id property, infer its type recursively
+    if (Object.keys(value).length === 1 && "_id" in value) {
+      return inferMongoDBSchemaType(value._id);
+    }
+  }
+  if (typeof value === "string") {
+    // Try to detect ISO date string
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(.\d+)?Z$/.test(value)) return "date";
+    return "string";
+  }
+  if (typeof value === "number") {
+    if (Number.isInteger(value)) return "int";
+    return "float";
+  }
+  if (typeof value === "boolean") return "boolean";
+  if (Array.isArray(value)) {
+    // Infer type of array elements
+    if (value.length === 0) return "array[unknown]";
+    const types = Array.from(new Set(value.map(inferMongoDBSchemaType)));
+    return `array[${types.join("|")}]`;
+  }
+  if (typeof value === "object" && value !== null) return "object";
+  return "unknown";
+}

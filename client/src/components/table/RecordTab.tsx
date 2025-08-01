@@ -1,71 +1,49 @@
-import { ColumnSchema } from "@/hooks/useTablesTab";
-import { Inbox, Key, Link } from "lucide-react";
 import React from "react";
+import JsonTreeView from "./JsonTreeView";
+import SQLRecordViewer from "./SQLRecordViewer";
+import { Inbox } from "lucide-react";
 
-interface RecordTabProps {
-  selectedDatabase: { connID: string, dbType: string } | null;
-  columns: ColumnSchema[];
-  recordsData: Record<string, unknown>[];
+export interface ColumnInfo {
+  name: string;
+  is_primary_key: boolean;
+  is_unique: boolean;
+  is_foreign_key: boolean;
 }
 
-const RecordTab = ({columns, recordsData, selectedDatabase}: RecordTabProps) => {
+interface RecordTabProps {
+  recordsData?: Record<string, string>[]; // Optional for SQL databases
+  columns? : ColumnInfo[];
+  isNosqlDatabase: boolean;
+  selectedDatabase?: { connID: string, dbType: string } | null; // Optional for SQL databases
+  mongoRecords?: Record<string, unknown>[]; // Optional for NoSQL databases
+}
+
+const RecordTab = ({isNosqlDatabase, mongoRecords, selectedDatabase, columns, recordsData}: RecordTabProps) => {
   return (
-    <div>
-      {recordsData.length === 0 ? (
+    <>
+      {((mongoRecords && Array.isArray(mongoRecords) && mongoRecords.length > 0) ||
+        (recordsData && Array.isArray(recordsData) && recordsData.length > 0)) ? (
+        isNosqlDatabase ? (
+          <JsonTreeView records={mongoRecords ?? []} />
+        ) : (
+          <SQLRecordViewer
+            columns={columns}
+            recordsData={recordsData}
+          />
+        )
+      ) : (
         <div className="px-4 py-12 text-center">
           <Inbox className="h-10 w-10 mb-2 text-slate-400" />
           <p className="text-slate-500">
-            {selectedDatabase 
-              ? 'No records found in this table' 
+            {selectedDatabase
+              ? 'No records found in this table'
               : 'Connect to a real database to view actual records'
             }
           </p>
         </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full table-auto">
-            <thead className="bg-slate-50">
-              <tr>
-                {columns.map((col) => (
-                  <th
-                    key={col.name}
-                    className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
-                  >
-                    <div className="flex flex-row items-center justify-start">
-                  {col.name}
-                  {col.is_primary_key && (
-                    <Key className="ml-1 text-yellow-500 h-3 w-3" />
-                  )}
-                  {col.is_unique && !col.is_primary_key && (
-                    <span className="ml-1 text-blue-500" title="Unique">⧉</span>
-                  )}
-                  {col.is_foreign_key && (
-                    <Link className="ml-1 text-blue-500 h-3 w-3" />
-                  )}
-                  </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-          <tbody className="bg-white divide-y divide-slate-200">
-            {recordsData.map((record, rowIdx) => (
-              <tr key={record.id != null ? String(record.id) : rowIdx} className="hover:bg-slate-50">
-                {columns.map((col) => (
-                  <td
-                    key={col.name}
-                    className="px-3 py-3 text-sm text-slate-900 whitespace-nowrap truncate max-w-40"
-                    title={record[col.name] != null ? String(record[col.name]) : ""}
-                  >
-                    {record[col.name] != null ? String(record[col.name]) : <span className="text-slate-400">NULL</span>}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )}
-  </div>
-)}
+      )}
+    </>
+  );
+}
 
 export default RecordTab;

@@ -74,7 +74,7 @@ const TablesList = ({
                   <span className="text-sm">No collections found</span>
                 </div>
               ) : (
-                <MongoDBTree data={mongoTreeData} onSelect={setSelectedTable} selectedTable={selectedTable}/>
+                <MongoDBTree data={mongoTreeData} onSelect={setSelectedTable}  selectedTable={selectedTable}/>
               )}
             </div>
           </div>

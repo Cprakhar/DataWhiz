@@ -32,7 +32,8 @@ func ConstructPromptSQL(tablesSchema map[string][]schema.ColumnSchema, tables []
 		%s
 		 
 		Given a natural language query, generate a valid %s query using the provided schemas and tables.
-		Return only the query without any explanation or additional text.`,
+		If any column is of type uuid and you need to compare it to a string, always typecast the string to uuid using ::uuid (e.g., column = 'value'::uuid), because you cannot compare uuid and text directly in SQL.
+		Return only the query as plain text, without any explanation, markdown, or code block formatting (such as triple backticks or language tags).`,
 		caser.String(dbType), dbType, strings.Join(tables, ", "), string(schemaJson), caser.String(dbType),
 	)
 

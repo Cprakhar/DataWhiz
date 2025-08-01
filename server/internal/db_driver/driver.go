@@ -114,8 +114,6 @@ func GetTableSchema(pool interface{}, dbType, dbName, tableName string) (interfa
 		return sql_.GetMySQLTableSchema(pool.(*sql.DB), tableName)
 	case "sqlite":
 		return sql_.GetSQLiteTableSchema(pool.(*sql.DB), tableName)
-	case "mongodb":
-		return nosql.GetMongoDBCollectionSchema(pool.(*mongo.Client), dbName, tableName)
 	default:
 		return nil, errors.New("unsupported database type: " + dbType)
 	}

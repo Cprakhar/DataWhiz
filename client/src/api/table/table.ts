@@ -26,8 +26,8 @@ export const GetTableSchema = async (connID: string, dbName: string, tableName: 
   return res.json()
 }
 
-export const GetTableRecords = async (connID: string, dbType: string, tableName: string) => {
-  const res = await fetch(`/api/tables/${connID}/${tableName}/records?db_type=${dbType}`, {
+export const GetTableRecords = async (connID: string, dbName: string, tableName: string) => {
+  const res = await fetch(`/api/tables/${connID}/${tableName}/records?db_name=${dbName}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
     credentials: "include"

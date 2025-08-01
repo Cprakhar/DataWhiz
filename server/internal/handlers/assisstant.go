@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 
 	dbdriver "github.com/cprakhar/datawhiz/internal/db_driver"
@@ -36,12 +37,14 @@ func (h *Handler) HandleGenerateQuery(ctx *gin.Context) {
 
 	poolMgr, err := poolmanager.GetPool(connID)
 	if err != nil {
+		log.Println("Error getting pool manager:", err)
 		response.InternalError(ctx, err)
 		return
 	}
 
 	releventSchemas, err := dbdriver.GetReleventTablesSchema(poolMgr.Pool, poolMgr.DBType, tables)
 	if err != nil {
+		log.Println("Error getting relevent schemas:", err)
 		response.InternalError(ctx, err)
 		return
 	}

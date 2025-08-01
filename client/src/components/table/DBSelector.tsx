@@ -12,7 +12,7 @@ interface DBSelectorProps {
 }
 
 const DBSelector = ({databases, selectedDatabase, onDatabaseChange, setSelectedTable}: DBSelectorProps) => {
-  const activeDatabases = databases.filter(db => db.isActive);
+  const activeDatabases = databases.filter(db => db.isActive && db.dbType !== "mongodb");
   const selected = activeDatabases.find(db => db.id === selectedDatabase?.connID);
   return (
     <div className="mb-4 lg:w-80 w-full">
@@ -34,7 +34,7 @@ const DBSelector = ({databases, selectedDatabase, onDatabaseChange, setSelectedT
             <>
               <Image src={getDBIcon(selected.dbType)} alt={selected.dbType} width={20} height={20} className="mr-2" />
               <span className={`text-xs font-semibold px-2 py-1 rounded ${getDBColor(selected.dbType)} bg-opacity-10 mr-2`}>{selected.dbType}</span>
-              <span className="truncate">{selected.dbName}</span>
+              <span className="truncate">{selected.connName}</span>
             </>
           ) : (
             <span className="text-gray-400">Select a database</span>
@@ -61,7 +61,7 @@ const DBSelector = ({databases, selectedDatabase, onDatabaseChange, setSelectedT
                 >
                   <Image src={getDBIcon(db.dbType)} alt={db.dbType} width={18} height={18} className="mr-2" />
                     <span className={`text-xs font-semibold px-2 py-1 rounded ${getDBColor(db.dbType)} bg-opacity-10 mr-2`}>{db.dbType}</span>
-                    <span className="truncate">{db.dbName}</span>
+                    <span className="truncate">{db.connName}</span>
                 </RadixSelect.Item>
               ))
             )}
