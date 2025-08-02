@@ -6,6 +6,7 @@ import { DefaultToastOptions, showToast } from "@/components/ui/Toast";
 import { Login, Register, Google, GitHub } from "@/api/auth/auth";
 import { AppError } from "@/types/error";
 import { useRouter } from "next/navigation";
+import { useUserContext } from "@/context/UserContext";
 
 export interface AuthFormData {
     name?: string;
@@ -14,6 +15,7 @@ export interface AuthFormData {
 }
 
 export default function useAuthForm(mode: "login" | "register") {
+    const {setUser} = useUserContext()
     const router = useRouter();
     const [form, setForm] = useState<AuthFormData>({
         name: "",
@@ -55,6 +57,14 @@ export default function useAuthForm(mode: "login" | "register") {
             const toastId = showToast.loading(mode === "login" ? "Logging in..." : "Registering...");
             try {
                 await promise;
+                const res = await fetch("/api/auth/me", {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                })
+                const userData = await res.json();
+                setUser(userData.data)
                 showToast.update(toastId, {...DefaultToastOptions,
                     render: mode === "login" ? "Login successful!" : "Registration successful!",
                     type: "success",
@@ -75,7 +85,7 @@ export default function useAuthForm(mode: "login" | "register") {
                 setLoading(false);
             }
         },
-        [mode, validate, form, router]
+        [mode, validate, form, router, setUser]
     );
 
     return {

@@ -50,12 +50,14 @@ func (h *Handler) HandleOAuthCallback(ctx *gin.Context) {
 
 	user, err := gothic.CompleteUserAuth(ctx.Writer, req)
 	if err != nil {
+		log.Println("Error completing OAuth authentication:", err)
 		ctx.Redirect(http.StatusTemporaryRedirect, redirectURL+"&status=error")
 		return
 	}
 
 	exists, err := users.CheckUserExists(h.Cfg.DBClient, user.Email)
 	if err != nil {
+		log.Println("Error checking if user exists:", err)
 		ctx.Redirect(http.StatusTemporaryRedirect, redirectURL+"&status=error")
 		return
 	}
@@ -70,6 +72,7 @@ func (h *Handler) HandleOAuthCallback(ctx *gin.Context) {
 		}
 		createdUser, err := users.InsertOneUser(h.Cfg.DBClient, newUser)
 		if err != nil {
+			log.Println("Error creating new user:", err)
 			ctx.Redirect(http.StatusTemporaryRedirect, redirectURL+"&status=error")
 			return
 		}
@@ -81,6 +84,7 @@ func (h *Handler) HandleOAuthCallback(ctx *gin.Context) {
 			},
 		)
 		if err != nil {
+			log.Println("Error setting session cookie:", err)
 			ctx.Redirect(http.StatusTemporaryRedirect, redirectURL+"&status=error")
 			return
 		}
@@ -88,19 +92,27 @@ func (h *Handler) HandleOAuthCallback(ctx *gin.Context) {
 		return
 	}
 
-	existingUser, err := users.GetUserByEmail(h.Cfg.DBClient, user.Email)
+	upsertUser := &schema.User{
+		Name: user.Name,
+		Email: user.Email,
+		AvatarURL: user.AvatarURL,
+		OAuthProvider: provider,
+		OAuthID: user.UserID,
+	}
+	updatedUser, err := users.UpsertOAuthUser(h.Cfg.DBClient, upsertUser)
 	if err != nil {
+		log.Println("Error upserting user:", err)
 		ctx.Redirect(http.StatusTemporaryRedirect, redirectURL+"&status=error")
 		return
 	}
-	
 	err = secure.SetSessionCookie(ctx, 
 		map[string]interface{}{
-			"user_id": existingUser.ID,
-			"email": existingUser.Email,
+			"user_id": updatedUser.ID,
+			"email": updatedUser.Email,
 		},
 	)
 	if err != nil {
+		log.Println("Error setting session cookie:", err)
 		ctx.Redirect(http.StatusTemporaryRedirect, redirectURL+"&status=error")
 		return
 	}

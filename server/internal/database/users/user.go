@@ -92,3 +92,23 @@ func CheckUserExists(client *supabase.Client, email string) (bool, error) {
 	}
 	return true, nil
 }
+
+func UpsertOAuthUser(client *supabase.Client, user *schema.User) (*ResponseUser, error) {
+	data, _, err := client.From("users").Upsert(user, "email", "representation", "exact").Single().Execute()
+	if err != nil {
+		return nil, err
+	}
+
+	var upsertedUser schema.User
+	if err := json.Unmarshal(data, &upsertedUser); err != nil {
+		return nil, err
+	}
+
+	return &ResponseUser{
+		ID:            upsertedUser.ID,
+		Name:          upsertedUser.Name,
+		Email:         upsertedUser.Email,
+		AvatarURL:     upsertedUser.AvatarURL,
+		OAuthProvider: upsertedUser.OAuthProvider,
+	}, nil
+}
