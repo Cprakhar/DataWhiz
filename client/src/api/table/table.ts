@@ -1,7 +1,7 @@
 import { AppError } from "@/types/error"
 
-export const GetTables = async (connID: string) => {
-  const res = await fetch(`/api/tables/${connID}`, {
+export const GetTables = async (connID: string, dbName?: string) => {
+  const res = await fetch(`/api/tables/${connID}?db_name=${dbName}`, {
     method: "GET",
     headers: { "Content-Type" : "application/json" },
     credentials: "include"
@@ -13,7 +13,7 @@ export const GetTables = async (connID: string) => {
   return res.json()
 }
 
-export const GetTableSchema = async (connID: string, dbName: string, tableName: string) => {
+export const GetTableSchema = async (connID: string, tableName: string, dbName?: string) => {
   const res = await fetch(`/api/tables/${connID}/${tableName}/schema?db_name=${dbName}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
@@ -26,7 +26,7 @@ export const GetTableSchema = async (connID: string, dbName: string, tableName: 
   return res.json()
 }
 
-export const GetTableRecords = async (connID: string, dbName: string, tableName: string) => {
+export const GetTableRecords = async (connID: string, tableName: string, dbName?: string) => {
   const res = await fetch(`/api/tables/${connID}/${tableName}/records?db_name=${dbName}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },

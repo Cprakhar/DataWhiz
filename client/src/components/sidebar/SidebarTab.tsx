@@ -23,7 +23,7 @@ export default function SidebarNavigation({connections, activeTab, onTabChange}:
           className="mr-2 h-6 w-6"
         />
         <span className="font-medium">Connections</span>
-        <span className="ml-auto bg-primary text-xs px-2 py-1 rounded-full">
+        <span className="ml-auto bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
           {Array.isArray(connections) ? connections.length : 0}
         </span>
       </button>

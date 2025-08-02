@@ -8,7 +8,7 @@ export const getManualDefaultValues = (type: string) => {
         username: "postgres",
         password: "",
         sslMode: false,
-        dbName: "",
+        dbName: "mydatabase",
         dbFilePath: ""
       };
     case "mysql":
@@ -18,7 +18,7 @@ export const getManualDefaultValues = (type: string) => {
         username: "root",
         password: "",
         sslMode: false,
-        dbName: "",
+        dbName: "mydatabase",
         dbFilePath: ""
       };
     case "mongodb":
@@ -28,7 +28,7 @@ export const getManualDefaultValues = (type: string) => {
         username: "",
         password: "",
         sslMode: false,
-        dbName: "",
+        dbName: "mydatabase",
         dbFilePath: ""
       };
     case "sqlite":
@@ -71,7 +71,7 @@ export const getStringDefaultValues = (type: string) => {
       };
     case "mongodb":
       return {
-        connString: "mongodb+srv://username:password@localhost:27017/?retryWrites=true&w=majority&appName=your_app_name",
+        connString: "mongodb://username:password@localhost:27017/database_name",
         connName: "",
         dbType: "mongodb"
       };

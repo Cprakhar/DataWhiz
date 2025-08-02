@@ -7,12 +7,12 @@ import Image from "next/image";
 interface DBSelectorProps {
   setSelectedTable?: Dispatch<SetStateAction<string | null>>;
   databases: Connection[];
-  onDatabaseChange: Dispatch<SetStateAction<{connID: string, dbType: string} | null>>;
-  selectedDatabase: {connID: string, dbType: string} | null;
+  onDatabaseChange: Dispatch<SetStateAction<{connID: string, dbType: string, dbName?: string} | null>>;
+  selectedDatabase: {connID: string, dbType: string, dbName?: string} | null;
 }
 
 const DBSelector = ({databases, selectedDatabase, onDatabaseChange, setSelectedTable}: DBSelectorProps) => {
-  const activeDatabases = databases.filter(db => db.isActive && db.dbType !== "mongodb");
+  const activeDatabases = databases.filter(db => db.isActive);
   const selected = activeDatabases.find(db => db.id === selectedDatabase?.connID);
   return (
     <div className="mb-4 lg:w-80 w-full">
@@ -22,7 +22,7 @@ const DBSelector = ({databases, selectedDatabase, onDatabaseChange, setSelectedT
         onValueChange={val => {
           const db = activeDatabases.find(db => db.id === val);
           if (db) {
-            onDatabaseChange({connID: db.id, dbType: db.dbType});
+            onDatabaseChange({connID: db.id, dbType: db.dbType, dbName: db.dbName});
             if (setSelectedTable) setSelectedTable(null); // Reset selected table when database changes
           } else {
             onDatabaseChange(null);

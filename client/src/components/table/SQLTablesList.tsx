@@ -1,4 +1,4 @@
-import { Table as Tbl } from "lucide-react";
+import { Folder, Table as Tbl } from "lucide-react";
 import { Dispatch, SetStateAction } from "react";
 
 interface SQLTablesListProps {
@@ -20,9 +20,9 @@ const SQLTablesList = ({
     <div className="max-h-96 overflow-y-auto p-2">
       {tables.length === 0 ? (
         <div className="px-4 py-8 text-center">
-          <Tbl className="mr-2" />
+          {selectedDatabase?.dbType === "mongodb" ? <Folder className="mr-2"/> : <Tbl className="mr-2" />}
           <p className="text-slate-500 text-sm">
-            {selectedDatabase ? "No tables found" : "Select a database to view tables"}
+            {selectedDatabase ? "No tables/collections found" : "Select a database to view tables/collections"}
           </p>
         </div>
       ) : (
@@ -36,7 +36,11 @@ const SQLTablesList = ({
                 }}
                 className={`flex items-center gap-2 w-full px-3 py-2 focus:outline-none rounded-t-lg`}
               >
-                <Tbl className={`w-4 h-4 mr-1 ${selectedTable === table ? "text-blue-500" : "text-slate-400"}`} />
+                {selectedDatabase?.dbType === "mongodb" ? 
+                  <Folder className={`w-4 h-4 mr-1 ${selectedTable === table ? "text-blue-500" : "text-slate-400"}`} /> 
+                  :
+                  <Tbl className={`w-4 h-4 mr-1 ${selectedTable === table ? "text-blue-500" : "text-slate-400"}`} />
+                }                
                 <span
                   className={`font-semibold ${selectedTable === table ? "text-blue-600" : "text-slate-800"}`}
                 >

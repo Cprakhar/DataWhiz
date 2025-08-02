@@ -1,5 +1,5 @@
 import TablesList from "./TableList";
-import useTablesTab, { MongoDBTables, SQLTables } from "@/hooks/useTablesTab";
+import useTablesTab from "@/hooks/useTablesTab";
 import DBSelector from "./DBSelector";
 import { Connection } from "@/types/connection";
 import TabHeader from "./TabHeader";
@@ -17,7 +17,7 @@ interface TablesTabProps {
 
 const TablesTab = ({databases} : TablesTabProps) => {
   const {
-    tables, 
+    tables: displayTables,
     loading,
     fetchLoading,
     selectedTable,
@@ -42,15 +42,6 @@ const TablesTab = ({databases} : TablesTabProps) => {
   const [activeTab, setActiveTab] = useState<'records' | 'schema'>('records');
   const selectedConnection = databases.find(conn => conn.id === selectedDatabase?.connID);
   const dbType = selectedConnection?.dbType
-
-  let displayTables: SQLTables = [];
-  let mongoTreeData: MongoDBTables = {};
-
-  if (dbType === "mongodb" && tables && typeof tables === "object" && !Array.isArray(tables)) {
-    mongoTreeData = tables as MongoDBTables;
-  } else if (tables && Array.isArray(tables)) {
-    displayTables = tables as SQLTables;
-  }
 
   const foreignKeys = getForeignKeysFromColumns(tableSchema.columnSchema)
   const indexes = getIndexesFromColumns(tableSchema.columnSchema)
@@ -79,9 +70,7 @@ const TablesTab = ({databases} : TablesTabProps) => {
         {/* Tables List */}
         <TablesList
           loading={loading}
-          dbType={dbType ?? ""}
-          displayTables={displayTables} 
-          mongoTreeData={mongoTreeData}
+          displayTables={displayTables}
           selectedDatabase={selectedDatabase} 
           selectedTable={selectedTable}
           setActiveTab={(tab) => setActiveTab(tab)}

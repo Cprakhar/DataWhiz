@@ -46,3 +46,18 @@ export const GetQueryHistory = async (connID: string) => {
   }
   return res.json();
 }
+
+export const DeleteQueryHistory = async (connID: string) => {
+  const res = await fetch(`/api/query/history/${connID}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err: AppError = await res.json();
+    throw err
+  }
+  return res.json();
+}

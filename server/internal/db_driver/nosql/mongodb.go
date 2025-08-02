@@ -3,6 +3,7 @@ package nosql
 import (
 	"context"
 	"errors"
+	"log"
 	"strings"
 	"time"
 
@@ -12,11 +13,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
-
-type MongoDBCollection struct {
-	DBName      string   `json:"dbName"`
-	Collections []string `json:"collections"`
-}
 
 // PingMongoDB pings the MongoDB server to check if it's reachable.
 func PingMongoDB(pool *mongo.Client) error {
@@ -59,7 +55,16 @@ func CreateMongoDBConnectionString(conn *schema.ManualConnectionForm) (string, e
 	}
 
 	// Construct the connection string
-	connStr := "mongodb://" + conn.Username + ":" + conn.Password + "@" + conn.Host + ":" + conn.Port + "/" + conn.DBName
+	var scheme string
+	var remaining string
+	if conn.IsSRV {
+		scheme = "mongodb+srv://"
+		remaining = "/" + conn.DBName
+	} else {
+		scheme = "mongodb://"
+		remaining = ":" + conn.Port + "/" + conn.DBName
+	}
+	connStr := scheme + conn.Username + ":" + conn.Password + "@" + conn.Host + remaining
 
 	if conn.SSLMode {
 		connStr += "?ssl=true"
@@ -67,13 +72,14 @@ func CreateMongoDBConnectionString(conn *schema.ManualConnectionForm) (string, e
 		connStr += "?ssl=false"
 	}
 
+	log.Println(connStr)
 	return connStr, nil
 }
 
 // ExtractMongoDBDetails extracts the connection details from a MongoDB connection string.
 func ExtractMongoDBDetails(conn *schema.StringConnectionForm) (*schema.ManualConnectionForm, error) {
 	// Assuming the connection string is in the format:
-	// mongodb://username:password@host:port/dbname?ssl=require|disable
+	// scheme://username:password@host(:port)?/dbname?ssl=require|disable
 
 	parts := strings.SplitN(conn.ConnString, "://", 2)
 	if len(parts) != 2 {
@@ -108,12 +114,14 @@ func ExtractMongoDBDetails(conn *schema.StringConnectionForm) (*schema.ManualCon
 		connDetails.Host = hostPort[0]
 		connDetails.Port = "27017" // Default MongoDB port
 	}
-	connDetails.DBName = hostPortDB[1]
+	// Extract dbName from /dbName?ssl=... by splitting on '?'
+	dbNameAndParams := strings.SplitN(hostPortDB[1], "?", 2)
+	connDetails.DBName = dbNameAndParams[0]
 
 	connDetails.SSLMode = false // default
 	for _, param := range strings.Split(parts[1], "&") {
 		if after, ok := strings.CutPrefix(param, "ssl="); ok {
-			connDetails.SSLMode = (after == "require")
+			connDetails.SSLMode = (after == "true")
 			break
 		}
 	}
@@ -122,34 +130,17 @@ func ExtractMongoDBDetails(conn *schema.StringConnectionForm) (*schema.ManualCon
 }
 
 // GetMongoDBCollections retrieves all collections from all databases in the MongoDB pool.
-func GetMongoDBCollections(pool *mongo.Client) ([]MongoDBCollection, error) {
+func GetMongoDBCollections(pool *mongo.Client, dbName string) ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	databases, err := pool.ListDatabaseNames(ctx, bson.D{})
+	var result []string
+	db := pool.Database(dbName)
+	colls, err := db.ListCollectionNames(ctx, bson.D{})
 	if err != nil {
 		return nil, err
 	}
-
-	var result []MongoDBCollection
-	var skippedDBs []string
-	for _, dbName := range databases {
-		db := pool.Database(dbName)
-		colls, err := db.ListCollectionNames(ctx, bson.D{})
-		if err != nil {
-			// Skip databases that return an error (e.g., empty or no access)
-			skippedDBs = append(skippedDBs, dbName)
-			continue
-		}
-		result = append(result, MongoDBCollection{
-			DBName:      dbName,
-			Collections: colls,
-		})
-	}
-
-	if len(result) == 0 && len(skippedDBs) > 0 {
-		return nil, errors.New("no collections found; skipped databases: " + strings.Join(skippedDBs, ", "))
-	}
+	result = append(result, colls...)
 
 	return result, nil
 }

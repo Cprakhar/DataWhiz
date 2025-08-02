@@ -13,6 +13,7 @@ export type ManualConnectionForm = {
   port?: string
   dbFilePath?: string
   dbName?: string
+  isSRV?: boolean
 }
 
 interface ManualTabProps {
@@ -36,6 +37,19 @@ export default function ManualTab({form, errors, handleChange}: ManualTabProps) 
         />
       ) : (
         <>
+          {form.dbType === "mongodb" && (
+           <ToggleButton 
+            className="max-w-fit"
+            checked={form.isSRV ?? false}
+            onChange={val => {
+                if (form.host !== "localhost") handleChange("isSRV", val);
+              }
+            }
+            label="SRV Connection"
+            disabled={form.host === "localhost"}
+           /> 
+          
+          )}
           <div className="grid grid-cols-3 gap-4">
             <div className="col-span-2">
               <FormField
@@ -47,7 +61,7 @@ export default function ManualTab({form, errors, handleChange}: ManualTabProps) 
                 placeholder={defaults.host}
               />
             </div>
-            <FormField
+            {form.dbType === "mongodb" && !form.isSRV && <FormField
               name="port"
               label="Port"
               value={form.port ?? defaults.port}
@@ -55,6 +69,7 @@ export default function ManualTab({form, errors, handleChange}: ManualTabProps) 
               error={errors.port}
               placeholder={defaults.port}
             />
+            }
           </div>
           <FormField
             name="dbName"
@@ -85,6 +100,7 @@ export default function ManualTab({form, errors, handleChange}: ManualTabProps) 
           </div>
           <div className="mt-4">
             <ToggleButton
+              className="max-w-fit"
               checked={form.host === "localhost" ? false : form.sslMode}
               onChange={val => {
                 if (form.host !== "localhost") handleChange("sslMode", val);

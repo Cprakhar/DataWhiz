@@ -19,7 +19,6 @@ const MongoSchemaNode: React.FC<{ name?: string; schema: MongoSchema; level?: nu
   const [collapsed, setCollapsed] = useState(level > 0);
   const isObject = typeof schema === "object" && schema !== null && !Array.isArray(schema);
   const isArray = Array.isArray(schema);
-  const isLeaf = typeof schema === "string" || (Array.isArray(schema) && schema.every(t => typeof t === "string"));
 
   // For array[string] or array of types
   let typeDisplay: string | null = null;

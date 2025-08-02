@@ -19,10 +19,10 @@ export default function AIAssistantTab({databases}: AIAssistantTabProps) {
     query, 
     generatedQuery,
     queryResult: currentQueryResult,
-    setSelectedDatabase, 
+    setSelectedDatabase,
+    handleDeleteQueryHistory,
     setQuery, 
     setGeneratedQuery,
-    setQueryResult: setCurrentQueryResult,
     handleGetGeneratedQuery,
     handleExecuteQuery,
     handleGetQueryHistory,
@@ -56,12 +56,13 @@ export default function AIAssistantTab({databases}: AIAssistantTabProps) {
     }
   }, [currentQueryResult])
 
+  const sqlDatabases = databases.filter(db => db.dbType !== "mongodb");
 
   return (
     <div className="p-6 max-w-full overflow-hidden">
       {/* Database Selector */}
       <DBSelector
-        databases={databases}
+        databases={sqlDatabases}
         onDatabaseChange={setSelectedDatabase}
         selectedDatabase={selectedDatabase}
       />
@@ -84,7 +85,6 @@ export default function AIAssistantTab({databases}: AIAssistantTabProps) {
               generatedQuery={generatedQuery}
               selectedDatabase={selectedDatabase}
               onExecute={handleExecuteQuery}
-              setQueryResult={setCurrentQueryResult}
               setGeneratedQuery={setGeneratedQuery}
               setShowResult={setShowResult}
             />
@@ -110,6 +110,7 @@ export default function AIAssistantTab({databases}: AIAssistantTabProps) {
 
         {/* Query History */}
         <QueryHistory 
+          onDeleteHistory={handleDeleteQueryHistory}
           queryHistory={queryHistory}
           selectedDatabase={selectedDatabase}
           setQuery={setQuery}

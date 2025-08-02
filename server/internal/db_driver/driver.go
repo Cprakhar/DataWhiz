@@ -90,7 +90,7 @@ func ExtractDBDetails(conn *schema.StringConnectionForm) (*schema.ManualConnecti
 }
 
 // ExtractDBTables extracts the list of tables or collections from the database.
-func ExtractDBTables(pool interface{}, dbType string) (interface{}, error) {
+func ExtractDBTables(pool interface{}, dbType string, dbName ...string) (interface{}, error) {
 	switch dbType {
 	case "postgresql":
 		return sql_.GetPostgresTables(pool.(*pgxpool.Pool))
@@ -99,7 +99,7 @@ func ExtractDBTables(pool interface{}, dbType string) (interface{}, error) {
 	case "sqlite":
 		return sql_.GetSQLiteTables(pool.(*sql.DB))
 	case "mongodb":
-		return nosql.GetMongoDBCollections(pool.(*mongo.Client))
+		return nosql.GetMongoDBCollections(pool.(*mongo.Client), dbName[0])
 	default:
 		return nil, errors.New("unsupported database type: " + dbType)
 	}

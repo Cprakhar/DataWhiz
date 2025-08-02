@@ -67,5 +67,6 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 	api.POST("/query/:id/generate", middleware.RequireAuth(), h.HandleGenerateQuery)
 	api.POST("/query/:id/execute", middleware.RequireAuth(), h.HandleExecuteQuery)
 	api.GET("/query/history/:id", middleware.RequireAuth(), h.HandleGetQueryHistory)
+	api.DELETE("/query/history/:id", middleware.RequireAuth(), h.HandleDeleteQueryHistory)
 	return router
 }

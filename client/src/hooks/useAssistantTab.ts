@@ -1,4 +1,4 @@
-import { ExecuteQuery, GenerateQuery, GetQueryHistory } from "@/api/ai-assistant/ai-assistant";
+import { DeleteQueryHistory, ExecuteQuery, GenerateQuery, GetQueryHistory } from "@/api/ai-assistant/ai-assistant";
 import { DefaultToastOptions, showToast } from "@/components/ui/Toast";
 import { AppError } from "@/types/error";
 import { useCallback, useState } from "react";
@@ -27,7 +27,7 @@ export type QueryHistory = {
 
 
 const useAssistantTab = () => {
-  const [selectedDatabase, setSelectedDatabase] = useState<{connID: string, dbType: string} | null>(null);
+  const [selectedDatabase, setSelectedDatabase] = useState<{connID: string, dbType: string, dbName?: string} | null>(null);
   const [query, setQuery] = useState("");
   const [generatedQuery, setGeneratedQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -106,6 +106,22 @@ const useAssistantTab = () => {
     }
   }, [selectedDatabase]);
 
+  const handleDeleteQueryHistory = useCallback(async () => {
+    if (!selectedDatabase) return;
+    try {
+      await DeleteQueryHistory(selectedDatabase.connID)
+      setQueryHistory([]);
+    } catch (err) {
+      let errMsg = "Failed to delete query history";
+      if (err && typeof err === "object" && "message" in err) {
+        errMsg = (err as AppError).message
+      }
+      showToast.error(errMsg, {...DefaultToastOptions,
+        isLoading: false
+      })
+    }
+  }, [selectedDatabase]);
+
   return {
     queryResult,
     setQueryResult,
@@ -119,6 +135,7 @@ const useAssistantTab = () => {
     handleGetGeneratedQuery,
     handleExecuteQuery,
     handleGetQueryHistory,
+    handleDeleteQueryHistory,
     queryHistory,
     runLoading,
   }

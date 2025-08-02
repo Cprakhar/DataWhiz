@@ -52,3 +52,15 @@ func GetQueryHistoryByConnectionID(client *supabase.Client, connectionID string)
 
 	return histories, nil
 }
+
+func DeleteQueryHistoryByConnectionID(client *supabase.Client, connectionID string) error {
+	_, count, err := client.From("query_history").Delete("minimal", "exact").Eq("conn_id", connectionID).Execute()
+	if err != nil {
+		if count == 0 {
+			return errors.New("no query history found for the given connection ID")
+		}
+		return err
+	}
+
+	return nil
+}

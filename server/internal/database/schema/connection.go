@@ -25,12 +25,13 @@ type ConnectionRequest struct {
 }
 
 type ManualConnectionForm struct {
+	IsSRV      bool   `json:"isSrv,omitempty"`
 	Port       string `json:"port,omitempty"`
 	Host       string `json:"host,omitempty"`
 	Username   string `json:"username,omitempty"`
 	Password   string `json:"password,omitempty"`
 	DBType     string `json:"dbType" binding:"required"`
-	ConnName   string `json:"connName" binding:"required"`
+	ConnName   string `json:"connName"`
 	SSLMode    bool   `json:"sslMode,omitempty"`
 	DBName     string `json:"dbName,omitempty"`
 	DBFilePath string `json:"dbFilePath,omitempty"`
@@ -39,5 +40,5 @@ type ManualConnectionForm struct {
 type StringConnectionForm struct {
 	ConnString string `json:"connString" binding:"required"`
 	DBType     string `json:"dbType" binding:"required"`
-	ConnName   string `json:"connName" binding:"required"`
+	ConnName   string `json:"connName"`
 }

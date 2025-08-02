@@ -22,8 +22,10 @@ func (h *Handler) HandleGetTables(ctx *gin.Context) {
 		response.InternalError(ctx, err)
 		return
 	}
-	
-	tables, err := dbdriver.ExtractDBTables(poolMgr.Pool, poolMgr.DBType)
+
+	dbName := ctx.Query("db_name")
+
+	tables, err := dbdriver.ExtractDBTables(poolMgr.Pool, poolMgr.DBType, dbName)
 	if err != nil {
 		response.InternalError(ctx, err)
 		return

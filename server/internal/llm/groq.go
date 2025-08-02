@@ -78,15 +78,10 @@ func GetTableNamesFromQuery(query string) ([]string, error) {
 	// Regex to match table names in SQL queries as {table_name}
 	re := regexp.MustCompile(`\{\w+\}`)
 	matches := re.FindAllString(query, -1)
-	if matches == nil {
-		return nil, errors.New("no table names found in query")
-	}
+
 	tableNames := make([]string, len(matches))
 	for i, match := range matches {
 		tableNames[i] = match[1 : len(match)-1] // Remove the curly braces
-	}
-	if len(tableNames) == 0 {
-		return nil, errors.New("no valid table names found in query")
 	}
 
 	return tableNames, nil

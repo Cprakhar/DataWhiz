@@ -1,8 +1,9 @@
 import { type QueryHistory } from "@/hooks/useAssistantTab";
-import { History, Timer } from "lucide-react";
+import { History, Timer, Trash } from "lucide-react";
 import { Dispatch, SetStateAction } from "react";
 
 interface QueryHistoryProps {
+  onDeleteHistory: () => Promise<void>;
   selectedDatabase: { connID: string, dbType: string } | null;
   queryHistory: QueryHistory[]
   setQuery: Dispatch<SetStateAction<string>>;
@@ -25,12 +26,18 @@ function formatRelativeTime(dateString: string) {
   return date.toLocaleDateString();
 }
 
-const QueryHistory = ({queryHistory, selectedDatabase, setQuery, setGeneratedQuery, setShowResult, setSelectedDatabase }: QueryHistoryProps) => {
+const QueryHistory = ({queryHistory, selectedDatabase, setQuery, setGeneratedQuery, setShowResult, setSelectedDatabase, onDeleteHistory }: QueryHistoryProps) => {
   return (
     <div className="lg:col-span-1">
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 mt-4">
-            <div className="px-6 py-4 border-b border-slate-200">
+            <div className="flex flex-row items-center justify-between px-6 py-4 border-b border-slate-200">
               <h3 className="font-semibold text-slate-800">Query History</h3>
+              <button
+                title="Clear History"
+                onClick={() => onDeleteHistory()}
+              >
+                <Trash className="h-5 w-5 text-red-500 hover:text-red-600 transition-colors" />
+              </button>
             </div>
             <div className="max-h-96 overflow-y-auto">
               {queryHistory.length === 0 ? (
@@ -40,7 +47,9 @@ const QueryHistory = ({queryHistory, selectedDatabase, setQuery, setGeneratedQue
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {queryHistory.map((query) => (
+                  {[...queryHistory]
+                    .sort((a, b) => new Date(b.executedAt).getTime() - new Date(a.executedAt).getTime())
+                    .map((query) => (
                     <div key={query.id} className="m-2 bg-slate-100 rounded-lg px-6 py-4 hover:bg-slate-50 cursor-pointer transition-colors"
                          onClick={() => {
                            setShowResult(false)

@@ -1,4 +1,3 @@
-import { QueryResult } from "@/hooks/useAssistantTab";
 import { LoaderPinwheel, Play } from "lucide-react";
 import { Dispatch, SetStateAction } from "react";
 
@@ -7,13 +6,12 @@ interface GeneratedQueryProps {
   generatedQuery: string;
   setGeneratedQuery: Dispatch<SetStateAction<string>>;
   selectedDatabase: { connID: string, dbType: string } | null;
-  setQueryResult: Dispatch<SetStateAction<QueryResult | null>>;
   setShowResult: Dispatch<SetStateAction<boolean>>;
   loading: boolean;
 }
 
 
-const GeneratedQuery = ({loading, generatedQuery, selectedDatabase, setQueryResult, setGeneratedQuery, setShowResult, onExecute}: GeneratedQueryProps) => {
+const GeneratedQuery = ({loading, generatedQuery, selectedDatabase, setGeneratedQuery, setShowResult, onExecute}: GeneratedQueryProps) => {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
               <div className="px-6 py-4 border-b border-slate-200">

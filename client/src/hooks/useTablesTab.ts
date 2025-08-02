@@ -4,9 +4,6 @@ import { AppError } from "@/types/error"
 import { useCallback, useEffect, useState } from "react"
 import { inferMongoDBSchemaType } from "@/utils/table"
 
-export type SQLTables = string[];
-export type MongoDBTables = { [dbName: string]: string[] };
-export type TablesData = SQLTables | MongoDBTables;
 export type MongoSchema = string | MongoSchema[] | { [key: string]: MongoSchema };
 
 
@@ -27,9 +24,9 @@ export interface ColumnSchema {
 const useTablesTab = () => {
   const [loading, setLoading] = useState(false)
   const [fetchLoading, setFetchLoading] = useState(false)
-  const [tables, setTables] = useState<TablesData>([])
+  const [tables, setTables] = useState<string[]>([])
   const [selectedTable, setSelectedTable] = useState<string | null>(null)
-  const [selectedDatabase, setSelectedDatabase] = useState<{connID: string, dbType: string} | null>(null)
+  const [selectedDatabase, setSelectedDatabase] = useState<{connID: string, dbType: string, dbName?: string} | null>(null)
   const [tableSchema, setTableSchema] = useState<{
     columnSchema: ColumnSchema[];
     recordsData: Record<string, string>[];
@@ -40,19 +37,11 @@ const useTablesTab = () => {
 
 
   const handleGetTables = useCallback(async (connID: string) => {
+    if (!connID || !selectedDatabase) return;
     setLoading(true)
     try {
-      const res = await GetTables(connID)
-      if (selectedDatabase?.dbType === "mongodb") {
-        const mongoData: MongoDBTables = {};
-        (res.data as Array<{dbName: string, collections: string[]}>).forEach(item => {
-          mongoData[item.dbName] = item.collections;
-        });
-        setTables(mongoData)
-      } else {
-        setTables(res.data as SQLTables)
-      }
-      setLoading(false)
+      const res = await GetTables(connID, selectedDatabase.dbName)
+      setTables(res.data)
     } catch (err) {
       let errMsg = "An unexpected error occurred."
       if (err && typeof err === "object" && "message" in err) {
@@ -61,20 +50,20 @@ const useTablesTab = () => {
       showToast.error(errMsg, {...DefaultToastOptions,
         isLoading: false
       })
-      setLoading(false)
     }
+    setLoading(false)
   }, [selectedDatabase])
 
   const handleGetTableSchemaAndRecords = useCallback(async () => {
+    if (!selectedDatabase || !selectedTable) return;
     setFetchLoading(true)
     try {
-      const schemaRes = await GetTableSchema(selectedDatabase?.connID || "", "", selectedTable || "")
-      const recordsRes = await GetTableRecords(selectedDatabase?.connID || "", "", selectedTable || "")
+      const schemaRes = await GetTableSchema(selectedDatabase.connID, selectedTable, selectedDatabase.dbName)
+      const recordsRes = await GetTableRecords(selectedDatabase.connID, selectedTable, selectedDatabase.dbName)
       setTableSchema({
         columnSchema: schemaRes.data,
         recordsData: recordsRes.data
       });
-      setFetchLoading(false)
     } catch (err) {
       let errMsg = "An unexpected error occurred."
       if (err && typeof err === "object" && "message" in err) {
@@ -83,8 +72,8 @@ const useTablesTab = () => {
       showToast.error(errMsg, {...DefaultToastOptions,
         isLoading: false
       })
-      setLoading(false)
     }
+    setFetchLoading(false)
   }, [selectedDatabase, selectedTable]);
 
 
@@ -146,17 +135,14 @@ const useTablesTab = () => {
   }, [])
 
   const handleGetMongoSchemaAndRecords = useCallback(async () => {
-    const dbName = selectedTable?.split('.')[0] || "";
-    const collectionName = selectedTable?.split('.').pop() || "";
-    if (!selectedDatabase || !dbName || !collectionName) return;
+    if (!selectedDatabase || !selectedTable) return;
     setFetchLoading(true)
     try {
-      const recordsRes = await GetTableRecords(selectedDatabase?.connID || "", dbName, collectionName)
+      const recordsRes = await GetTableRecords(selectedDatabase.connID, selectedTable, selectedDatabase.dbName)
       setMongoRecords(recordsRes.data);
       // Build schema from records
       const schema = buildMongoSchema(recordsRes.data);
       setMongoSchema(schema);
-      setFetchLoading(false)
     } catch (err) {
       let errMsg = "An unexpected error occurred."
       if (err && typeof err === "object" && "message" in err) {
@@ -165,17 +151,14 @@ const useTablesTab = () => {
       showToast.error(errMsg, {...DefaultToastOptions,
         isLoading: false
       })
-      setFetchLoading(false)
     }
+    setFetchLoading(false)
   }, [selectedDatabase, selectedTable, buildMongoSchema]);
 
 
   useEffect(() => {
-    if (selectedDatabase?.connID) {
-      handleGetTables(selectedDatabase.connID);
-    } else {
-      setTables(selectedDatabase?.dbType === "mongodb" ? {} : []);
-    }
+    if (!selectedDatabase) return;
+    handleGetTables(selectedDatabase.connID);
   }, [selectedDatabase, handleGetTables]);
 
   return {

@@ -32,7 +32,7 @@ const RecordTab = ({isNosqlDatabase, mongoRecords, selectedDatabase, columns, re
           />
         )
       ) : (
-        <div className="px-4 py-12 text-center">
+        <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
           <Inbox className="h-10 w-10 mb-2 text-slate-400" />
           <p className="text-slate-500">
             {selectedDatabase

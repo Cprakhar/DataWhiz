@@ -1,5 +1,6 @@
 import { Dispatch, SetStateAction } from "react";
 import Sparkle from "../ui/Sparkle";
+import SmartInput from "./SmartInput";
 
 interface NLInputProps {
   selectedDatabase: {connID: string, dbType: string} | null;
@@ -16,22 +17,18 @@ const NLInput = ({loading, nlQuery, selectedDatabase, setNLQuery, onGenerateQuer
             <div className="px-6 py-4 border-b border-slate-200">
               <h3 className="font-semibold text-slate-800">Ask your question</h3>
               <p className="text-sm text-slate-600 mt-1">
-                Describe what you want to find in natural language
+                Describe what you want to find in natural language.<br />
+                <span className="text-xs text-slate-500">
+                  <strong>Instructions:</strong> When writing your query, always specify the table name you want to query in <code>{'{table_name}'}</code> format.<br />
+                  For example: <code>Show all users from {'{users}'}</code>.<br />
+                </span>
               </p>
             </div>
             <div className="p-6">
-              <textarea
-                value={nlQuery}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    onGenerateQuery();
-                  }
-                }}
-                onChange={(e) => setNLQuery(e.target.value)}
-                placeholder="e.g., Show me all users who registered last month with their total orders"
-                className="w-full h-24 px-4 py-3 border border-slate-300 rounded-lg resize-none focus:ring-2 focus:ring-primary focus:border-primary"
-                disabled={!selectedDatabase}
+              <SmartInput 
+                nlQuery={nlQuery}
+                selectedDatabase={selectedDatabase}
+                setNLQuery={setNLQuery}
               />
               <div className="flex items-center justify-between mt-4">
                 <p className="text-sm text-slate-500">

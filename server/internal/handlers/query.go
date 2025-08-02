@@ -95,3 +95,19 @@ func (h *Handler) HandleGetQueryHistory(ctx *gin.Context) {
 
 	response.JSON(ctx, http.StatusOK, "Query history retrieved successfully", histories)
 }	
+
+func (h *Handler) HandleDeleteQueryHistory(ctx *gin.Context) {
+	connID := ctx.Param("id")
+	if connID == "" {
+		response.BadRequest(ctx, "Connection ID is required", nil)
+		return
+	}
+
+	err := queryhistory.DeleteQueryHistoryByConnectionID(h.Cfg.DBClient, connID)
+	if err != nil {
+		response.InternalError(ctx, err)
+		return
+	}
+
+	response.JSON(ctx, http.StatusOK, "Query history deleted successfully", nil)
+}
