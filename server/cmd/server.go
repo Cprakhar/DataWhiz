@@ -12,6 +12,7 @@ import (
 	"github.com/cprakhar/datawhiz/config"
 	poolmanager "github.com/cprakhar/datawhiz/internal/pool_manager"
 	"github.com/cprakhar/datawhiz/internal/router"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -19,6 +20,12 @@ func main() {
 	config, err := config.NewConfig()
 	if err != nil {
 		panic(err) // Handle error appropriately in production code
+	}
+
+	if config.Env.GinMode == "release" {
+		gin.SetMode(gin.ReleaseMode)
+	} else {
+		gin.SetMode(gin.DebugMode)
 	}
 
 	encryptionKey, err := base64.StdEncoding.DecodeString(config.Env.EncryptionKey)

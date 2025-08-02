@@ -1,7 +1,6 @@
 package router
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/cprakhar/datawhiz/config"
@@ -11,7 +10,6 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
-	"github.com/markbates/goth/gothic"
 )
 
 // NewRouter initializes the Gin router with the necessary routes and middleware.
@@ -24,9 +22,8 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 		MaxAge: int(cfg.Env.SessionMaxAge),
 		HttpOnly: true,
 		Secure: cfg.Env.SessionSecure,
-		SameSite: http.SameSiteNoneMode,
 	})
-	gothic.Store = store
+	
 
 	cors := cors.New(cors.Config{
 		AllowOrigins:     []string{cfg.Env.FrontendBaseURL},
@@ -37,7 +34,7 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 		MaxAge:           12 * time.Hour,
 	})
 
-	router.Use(sessions.Sessions(gothic.SessionName, store))
+	router.Use(sessions.Sessions("datawhiz_session", store))
 	router.Use(cors)
 
 	h := &handlers.Handler{Cfg: cfg}
