@@ -64,7 +64,7 @@ func CheckConnectionExists(client *supabase.Client, req *schema.ManualConnection
 	}
 
 	data, count, err := query.Single().Execute()
-	
+
 	if err != nil {
 		if count == 0 {
 			return false, nil
@@ -130,17 +130,17 @@ func GetConnectionStringByID(client *supabase.Client, id, userID string) (string
 	data, count, err := client.From("connections").Select("connection_string", "exact", false).
 		Eq("id", id).
 		Eq("user_id", userID).
-		Single().Execute()	
-	
+		Single().Execute()
+
 	if err != nil {
 		if count == 0 {
 			return "", nil // No connection found
 		}
 		return "", err
 	}
-	
-	var result struct { 
-		ConnString string `json:"connection_string"` 
+
+	var result struct {
+		ConnString string `json:"connection_string"`
 	}
 	if err := json.Unmarshal(data, &result); err != nil {
 		return "", err
@@ -151,7 +151,7 @@ func GetConnectionStringByID(client *supabase.Client, id, userID string) (string
 // SetConnectionActive updates the is_active status of a connection for a specific user.
 func SetConnectionActive(client *supabase.Client, id, userID string, isActive bool) error {
 	_, count, err := client.From("connections").
-		Update(map[string]interface{}{"is_active": isActive,}, "minimal", "exact").
+		Update(map[string]interface{}{"is_active": isActive}, "minimal", "exact").
 		Eq("id", id).Eq("user_id", userID).Single().Execute()
 
 	if err != nil {
@@ -192,15 +192,30 @@ func GetConnectionByID(client *supabase.Client, id, userID string) (*ResponseCon
 	}, nil
 }
 
-// SetAllConnectionsInactive sets all connections for the user to inactive.
+// SetAllConnectionsInactive sets all connections to inactive (global).
 func SetAllConnectionsInactive(client *supabase.Client) error {
 	_, count, err := client.From("connections").
-		Update(map[string]interface{}{"is_active" : false,}, "minimal", "exact").
+		Update(map[string]interface{}{"is_active": false}, "minimal", "exact").
 		Match(map[string]string{"is_active": "TRUE"}).
 		Execute()
 	if err != nil {
 		if count == 0 {
 			return errors.New("no active connections found")
+		}
+		return err
+	}
+	return nil
+}
+
+// SetAllConnectionsInactiveForUser sets all connections for a specific user to inactive.
+func SetAllConnectionsInactiveForUser(client *supabase.Client, userID string) error {
+	_, count, err := client.From("connections").
+		Update(map[string]interface{}{"is_active": false}, "minimal", "exact").
+		Match(map[string]string{"user_id": userID, "is_active": "TRUE"}).
+		Execute()
+	if err != nil {
+		if count == 0 {
+			return errors.New("no active connections found for user")
 		}
 		return err
 	}

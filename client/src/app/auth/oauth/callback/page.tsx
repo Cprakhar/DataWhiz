@@ -2,9 +2,9 @@
 
 import { showToast } from "@/components/ui/Toast";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 
-export default function OAuthPage() {
+const Search = () => {
     const router = useRouter()
     const params = useSearchParams()
 
@@ -20,4 +20,12 @@ export default function OAuthPage() {
         }
     }, [params, router])
     return <div>Processing Signin via OAuth...</div>
+}
+
+export default function OAuthPage() {
+    return (
+        <Suspense>
+            <Search />
+        </Suspense>
+    )
 }

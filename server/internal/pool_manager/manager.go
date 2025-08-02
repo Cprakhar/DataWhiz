@@ -1,20 +1,20 @@
 package poolmanager
 
 import (
-	"context"
-	"database/sql"
-	"errors"
-	"log"
-	"sync"
-	"time"
+	   "context"
+	   "database/sql"
+	   "errors"
+	   "log"
+	   "sync"
+	   "time"
 
-	"github.com/cprakhar/datawhiz/config"
-	"github.com/cprakhar/datawhiz/internal/database/connections"
-	dbdriver "github.com/cprakhar/datawhiz/internal/db_driver"
-	"github.com/cprakhar/datawhiz/utils/secure"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/supabase-community/supabase-go"
-	"go.mongodb.org/mongo-driver/v2/mongo"
+	   "github.com/cprakhar/datawhiz/config"
+	   "github.com/cprakhar/datawhiz/internal/database/connections"
+	   dbdriver "github.com/cprakhar/datawhiz/internal/db_driver"
+	   "github.com/cprakhar/datawhiz/utils/secure"
+	   "github.com/jackc/pgx/v5/pgxpool"
+	   "github.com/supabase-community/supabase-go"
+	   "go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 type PoolManager struct {
@@ -24,10 +24,30 @@ type PoolManager struct {
 	DBType    string
 }
 
+
 var (
-	poolMap   = make(map[string]*PoolManager) // key: connection ID
-	poolMutex sync.RWMutex                    // Mutex to protect access to poolMap
+	   poolMap   = make(map[string]*PoolManager) // key: connection ID
+	   poolMutex sync.RWMutex                    // Mutex to protect access to poolMap
 )
+
+// DeactivateAllUserPools deactivates all connection pools for a specific user.
+func DeactivateAllUserPools(userID string) {
+	poolMutex.Lock()
+	defer poolMutex.Unlock()
+	for connID, pool := range poolMap {
+		if pool.UserID == userID {
+			switch p := pool.Pool.(type) {
+			case *pgxpool.Pool:
+				p.Close()
+			case *sql.DB:
+				p.Close()
+			case *mongo.Client:
+				p.Disconnect(context.Background())
+			}
+			delete(poolMap, connID)
+		}
+	}
+}
 
 // GetPool retrieves the connection pool for the given connection ID.
 func GetPool(connID string) (*PoolManager, error) {

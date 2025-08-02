@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/cprakhar/datawhiz/internal/database/connections"
 	"github.com/cprakhar/datawhiz/internal/database/schema"
 	"github.com/cprakhar/datawhiz/internal/database/users"
+	poolmanager "github.com/cprakhar/datawhiz/internal/pool_manager"
 	"github.com/cprakhar/datawhiz/utils/password"
 	"github.com/cprakhar/datawhiz/utils/response"
 	"github.com/cprakhar/datawhiz/utils/secure"
@@ -26,7 +28,7 @@ type LoginRequest struct {
 }
 
 // HandleRegister handles user registration by creating a new user in the database.
-func (h *Handler) HandleRegister (ctx *gin.Context) {
+func (h *Handler) HandleRegister(ctx *gin.Context) {
 	var req RegisterRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(ctx, "Invalid request data", err)
@@ -49,9 +51,9 @@ func (h *Handler) HandleRegister (ctx *gin.Context) {
 		return
 	}
 	newUser := &schema.User{
-		Name:          req.Name,
-		Email:         req.Email,
-		Password:      hashedPassword,
+		Name:     req.Name,
+		Email:    req.Email,
+		Password: hashedPassword,
 	}
 	createdUser, err := users.InsertOneUser(h.Cfg.DBClient, newUser)
 	if err != nil {
@@ -62,7 +64,7 @@ func (h *Handler) HandleRegister (ctx *gin.Context) {
 }
 
 // HandleLogin handles user login by validating credentials and setting a session cookie.
-func (h *Handler) HandleLogin (ctx *gin.Context) {
+func (h *Handler) HandleLogin(ctx *gin.Context) {
 	var req LoginRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(ctx, "Invalid request data", err)
@@ -94,10 +96,10 @@ func (h *Handler) HandleLogin (ctx *gin.Context) {
 		return
 	}
 
-	err = secure.SetSessionCookie(ctx, 
+	err = secure.SetSessionCookie(ctx,
 		map[string]interface{}{
 			"user_id": dbUser.ID,
-			"email": dbUser.Email,
+			"email":   dbUser.Email,
 		},
 	)
 	if err != nil {
@@ -118,6 +120,15 @@ func (h *Handler) HandleLogin (ctx *gin.Context) {
 // HandleLogout handles user logout by clearing the session cookie.
 func (h *Handler) HandleLogout(ctx *gin.Context) {
 	session := sessions.Default(ctx)
+	userID := session.Get("user_id")
+	
+	poolmanager.DeactivateAllUserPools(userID.(string))
+	err := connections.SetAllConnectionsInactiveForUser(h.Cfg.DBClient, userID.(string))
+	if err != nil {
+		response.InternalError(ctx, err)
+		return
+	}
+
 	session.Clear()
 	if err := session.Save(); err != nil {
 		response.InternalError(ctx, err)

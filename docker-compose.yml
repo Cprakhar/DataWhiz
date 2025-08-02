@@ -1,0 +1,27 @@
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: ./Dockerfile
+    env_file:
+      - ./server/.env
+    ports:
+      - 8080:8080
+    networks:
+      - datawhiz-net
+  
+  client:
+    build:
+      context: ./client
+      dockerfile: ./Dockerfile
+      args:
+        - BACKEND_BASE_URL=http://server:8080
+    ports:
+      - 3000:3000
+    networks:
+      - datawhiz-net
+
+networks:
+  datawhiz-net:
+    driver: bridge
+  
