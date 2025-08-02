@@ -1,6 +1,7 @@
 package router
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/cprakhar/datawhiz/config"
@@ -22,6 +23,7 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 		MaxAge: int(cfg.Env.SessionMaxAge),
 		HttpOnly: true,
 		Secure: cfg.Env.SessionSecure,
+		SameSite: http.SameSiteNoneMode,
 	})
 
 	cors := cors.New(cors.Config{

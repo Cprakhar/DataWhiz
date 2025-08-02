@@ -5,6 +5,7 @@ import { FieldErrors } from "@/types/auth";
 import { DefaultToastOptions, showToast } from "@/components/ui/Toast";
 import { Login, Register, Google, GitHub } from "@/api/auth/auth";
 import { AppError } from "@/types/error";
+import { useRouter } from "next/navigation";
 
 export interface AuthFormData {
     name?: string;
@@ -13,6 +14,7 @@ export interface AuthFormData {
 }
 
 export default function useAuthForm(mode: "login" | "register") {
+    const router = useRouter();
     const [form, setForm] = useState<AuthFormData>({
         name: "",
         email: "",
@@ -58,6 +60,7 @@ export default function useAuthForm(mode: "login" | "register") {
                     type: "success",
                     isLoading: false
                 });
+                router.push("/dashboard");
             } catch (err) {
                 let errorMsg = "An unexpected error occurred.";
                 if (err && typeof err === "object" && "message" in err) {
@@ -72,7 +75,7 @@ export default function useAuthForm(mode: "login" | "register") {
                 setLoading(false);
             }
         },
-        [mode, validate, form]
+        [mode, validate, form, router]
     );
 
     return {

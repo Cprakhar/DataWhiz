@@ -21,13 +21,13 @@ func (h *Handler) InitProviders() {
 		google.New(
 			h.Cfg.Env.GoogleClientID,
 			h.Cfg.Env.GoogleClientSecret,
-			"http://localhost:8080/api/v1/auth/oauth/callback?provider=google",
+			h.Cfg.Env.BackendBaseURL + "/api/v1/auth/oauth/callback?provider=google",
 			"email", "profile",
 		),
 		github.New(
 			h.Cfg.Env.GitHubClientID,
 			h.Cfg.Env.GitHubClientSecret,
-			"http://localhost:8080/api/v1/auth/oauth/callback?provider=github",
+			h.Cfg.Env.BackendBaseURL + "/api/v1/auth/oauth/callback?provider=github",
 			"read:user",
 		),
 	)

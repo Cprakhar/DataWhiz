@@ -8,6 +8,7 @@ import (
 
 type Env struct {
 	Port               string        `env:"PORT" envDefault:"8080"`
+	BackendBaseURL     string        `env:"BACKEND_BASE_URL" envDefault:"http://localhost:8080"`
 	FrontendBaseURL    string        `env:"FRONTEND_BASE_URL" envDefault:"http://localhost:3000"`
 	GitHubClientID     string        `env:"GITHUB_CLIENT_ID" envDefault:""`
 	GitHubClientSecret string        `env:"GITHUB_CLIENT_SECRET" envDefault:""`

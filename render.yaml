@@ -4,11 +4,12 @@ services:
     dockerContext: ./server/
     dockerfilePath: ./server/Dockerfile
     name: server
-    rootDir: ./server
+    plan: free
     domain: datawhiz.server
     envVars:
       - fromGroup: server
-    autoDeploy: false
+    autoDeploy: true
+    autoDeployTrigger: commit
 
   - type: web
     runtime: docker
@@ -16,8 +17,9 @@ services:
     dockerContext: ./client/
     dockerfilePath: ./client/Dockerfile
     name: client
-    rootDir: ./client
+    plan: free
     envVars:
       - fromGroup: server
-    autoDeploy: false
+    autoDeploy: true
+    autoDeployTrigger: commit
     
