@@ -1,6 +1,7 @@
 package router
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/cprakhar/datawhiz/config"
@@ -10,11 +11,24 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/markbates/goth/gothic"
 )
 
 // NewRouter initializes the Gin router with the necessary routes and middleware.
 func NewRouter(cfg *config.Config) *gin.Engine {
 	router := gin.Default()
+
+	var sameSite http.SameSite
+	switch cfg.Env.SameSite {
+	case "lax":
+		sameSite = http.SameSiteLaxMode
+	case "strict":
+		sameSite = http.SameSiteStrictMode
+	case "none":
+		sameSite = http.SameSiteNoneMode
+	default:
+		sameSite = http.SameSiteLaxMode // Default to Lax if not specified
+	}
 
 	store := cookie.NewStore([]byte(cfg.Env.SessionSecret))
 	store.Options(sessions.Options{
@@ -22,8 +36,9 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 		MaxAge: int(cfg.Env.SessionMaxAge),
 		HttpOnly: true,
 		Secure: cfg.Env.SessionSecure,
+		SameSite: sameSite,
 	})
-	
+	gothic.Store = store
 
 	cors := cors.New(cors.Config{
 		AllowOrigins:     []string{cfg.Env.FrontendBaseURL},
@@ -34,7 +49,7 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 		MaxAge:           12 * time.Hour,
 	})
 
-	router.Use(sessions.Sessions("datawhiz_session", store))
+	router.Use(sessions.Sessions(gothic.SessionName, store))
 	router.Use(cors)
 
 	h := &handlers.Handler{Cfg: cfg}

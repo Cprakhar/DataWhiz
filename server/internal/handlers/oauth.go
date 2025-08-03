@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"log"
 	"net/http"
 
 	"github.com/cprakhar/datawhiz/internal/database/schema"
 	"github.com/cprakhar/datawhiz/internal/database/users"
 
+	"github.com/cprakhar/datawhiz/utils/response"
 	"github.com/cprakhar/datawhiz/utils/secure"
 	"github.com/gin-gonic/gin"
 	"github.com/markbates/goth"
@@ -38,7 +40,19 @@ func (h *Handler) HandleOAuthSignIn (ctx *gin.Context) {
 	provider := ctx.Query("provider")
 	log.Println(ctx.Request.URL)
 
-	req := gothic.GetContextWithProvider(ctx.Request, provider)
+	type providerKeyType string
+	const providerKey providerKeyType = "oauth_provider"
+
+	req := ctx.Request.WithContext(context.WithValue(ctx, providerKey, provider))
+
+	session, err := gothic.Store.Get(ctx.Request, gothic.SessionName)
+	if err != nil {
+		log.Println("Error getting session:", err)
+		response.InternalError(ctx, err)
+		return
+	}
+	session.Values["oauth_provider"] = provider
+	session.Save(ctx.Request, ctx.Writer)
 	gothic.BeginAuthHandler(ctx.Writer, req)
 }
 

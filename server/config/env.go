@@ -28,6 +28,7 @@ type Env struct {
 	EncryptionKey      string        `env:"ENCRYPTION_KEY" envDefault:""`
 	CleanupInterval    time.Duration `env:"CLEANUP_INTERVAL" envDefault:"15m"`
 	GinMode            string        `env:"GIN_MODE" envDefault:"debug"`
+	SameSite		   string        `env:"SAME_SITE" envDefault:"lax"`
 }
 
 func LoadEnv() (*Env, error) {
