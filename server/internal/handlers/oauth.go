@@ -8,14 +8,14 @@ import (
 	"github.com/cprakhar/datawhiz/internal/database/schema"
 	"github.com/cprakhar/datawhiz/internal/database/users"
 
-	"github.com/cprakhar/datawhiz/utils/response"
-	"github.com/cprakhar/datawhiz/utils/secure"
 	"github.com/gin-gonic/gin"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/github"
 	"github.com/markbates/goth/providers/google"
 )
+
+type contextKey string
 
 // InitProviders initializes the OAuth providers with the necessary credentials.
 func (h *Handler) InitProviders() {
@@ -40,28 +40,18 @@ func (h *Handler) HandleOAuthSignIn (ctx *gin.Context) {
 	provider := ctx.Query("provider")
 	log.Println(ctx.Request.URL)
 
-	type providerKeyType string
-	const providerKey providerKeyType = "oauth_provider"
-
+	const providerKey contextKey = "provider"
 	req := ctx.Request.WithContext(context.WithValue(ctx, providerKey, provider))
-
-	session, err := gothic.Store.Get(ctx.Request, gothic.SessionName)
-	if err != nil {
-		log.Println("Error getting session:", err)
-		response.InternalError(ctx, err)
-		return
-	}
-	session.Values["oauth_provider"] = provider
-	session.Save(ctx.Request, ctx.Writer)
 	gothic.BeginAuthHandler(ctx.Writer, req)
 }
 
-// HandleOAuthCallback handles the OAuth callback after the user has authenticated with the provider.
+// HandleOAuthCallback handles the callback from the OAuth provider after authentication.
 func (h *Handler) HandleOAuthCallback(ctx *gin.Context) {
 	provider := ctx.Query("provider")
 	redirectURL := h.Cfg.Env.FrontendBaseURL + "/auth/oauth/callback?provider=" + provider
-	req := gothic.GetContextWithProvider(ctx.Request, provider)
 
+	const providerKey contextKey = "provider"
+	req := ctx.Request.WithContext(context.WithValue(ctx, providerKey, provider))
 	user, err := gothic.CompleteUserAuth(ctx.Writer, req)
 	if err != nil {
 		log.Println("Error completing OAuth authentication:", err)
@@ -91,14 +81,17 @@ func (h *Handler) HandleOAuthCallback(ctx *gin.Context) {
 			return
 		}
 
-		err = secure.SetSessionCookie(ctx, 
-			map[string]interface{}{
-				"user_id": createdUser.ID,
-				"email": createdUser.Email,
-			},
-		)
+		session, err := gothic.Store.Get(ctx.Request, gothic.SessionName)
 		if err != nil {
-			log.Println("Error setting session cookie:", err)
+			log.Println("Error getting session:", err)
+			ctx.Redirect(http.StatusTemporaryRedirect, redirectURL+"&status=error")
+			return
+		}
+
+		session.Values["user_id"] = createdUser.ID
+		session.Values["email"] = createdUser.Email
+		if err := session.Save(ctx.Request, ctx.Writer); err != nil {
+			log.Println("Error saving session:", err)
 			ctx.Redirect(http.StatusTemporaryRedirect, redirectURL+"&status=error")
 			return
 		}
@@ -119,14 +112,18 @@ func (h *Handler) HandleOAuthCallback(ctx *gin.Context) {
 		ctx.Redirect(http.StatusTemporaryRedirect, redirectURL+"&status=error")
 		return
 	}
-	err = secure.SetSessionCookie(ctx, 
-		map[string]interface{}{
-			"user_id": updatedUser.ID,
-			"email": updatedUser.Email,
-		},
-	)
+	
+	session, err := gothic.Store.Get(ctx.Request, gothic.SessionName)
 	if err != nil {
-		log.Println("Error setting session cookie:", err)
+		log.Println("Error getting session:", err)
+		ctx.Redirect(http.StatusTemporaryRedirect, redirectURL+"&status=error")
+		return
+	}
+	session.Values["user_id"] = updatedUser.ID
+	session.Values["email"] = updatedUser.Email
+
+	if err := session.Save(ctx.Request, ctx.Writer); err != nil {
+		log.Println("Error saving session:", err)
 		ctx.Redirect(http.StatusTemporaryRedirect, redirectURL+"&status=error")
 		return
 	}

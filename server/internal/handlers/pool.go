@@ -1,17 +1,16 @@
 package handlers
 
 import (
+
 	"github.com/cprakhar/datawhiz/internal/database/connections"
 	poolmanager "github.com/cprakhar/datawhiz/internal/pool_manager"
 	"github.com/cprakhar/datawhiz/utils/response"
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
 
 // HandleActivateConnection activates a connection by its ID for the authenticated user.
 func (h *Handler) HandleActivateConnection(ctx *gin.Context) {
-	session := sessions.Default(ctx)
-	userID := session.Get("user_id")
+	userID, _ := ctx.Get("user_id")
 
 	connID := ctx.Param("id")
 	if connID == "" {
@@ -41,8 +40,7 @@ func (h *Handler) HandleActivateConnection(ctx *gin.Context) {
 
 // HandleDeactivateConnection deactivates a connection by its ID for the authenticated user.
 func (h *Handler) HandleDeactivateConnection(ctx *gin.Context) {
-	session := sessions.Default(ctx)
-	userID := session.Get("user_id")
+	userID, _ := ctx.Get("user_id")
 	
 	connID := ctx.Param("id")
 	if connID == "" {

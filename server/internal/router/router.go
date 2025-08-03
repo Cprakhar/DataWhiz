@@ -8,9 +8,8 @@ import (
 	"github.com/cprakhar/datawhiz/internal/handlers"
 	"github.com/cprakhar/datawhiz/internal/middleware"
 	"github.com/gin-contrib/cors"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/sessions"
 	"github.com/markbates/goth/gothic"
 )
 
@@ -30,14 +29,13 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 		sameSite = http.SameSiteLaxMode // Default to Lax if not specified
 	}
 
-	store := cookie.NewStore([]byte(cfg.Env.SessionSecret))
-	store.Options(sessions.Options{
-		Path: "/",
-		MaxAge: int(cfg.Env.SessionMaxAge),
-		HttpOnly: true,
-		Secure: cfg.Env.SessionSecure,
-		SameSite: sameSite,
-	})
+	store := sessions.NewCookieStore([]byte(cfg.Env.SessionSecret))
+	store.Options.Path = "/"
+	store.Options.MaxAge = int(cfg.Env.SessionMaxAge)
+	store.Options.HttpOnly = true
+	store.Options.Secure = cfg.Env.SessionSecure
+	store.Options.SameSite = sameSite
+
 	gothic.Store = store
 
 	cors := cors.New(cors.Config{
@@ -49,7 +47,6 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 		MaxAge:           12 * time.Hour,
 	})
 
-	router.Use(sessions.Sessions(gothic.SessionName, store))
 	router.Use(cors)
 
 	h := &handlers.Handler{Cfg: cfg}

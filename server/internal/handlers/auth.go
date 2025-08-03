@@ -11,9 +11,8 @@ import (
 	poolmanager "github.com/cprakhar/datawhiz/internal/pool_manager"
 	"github.com/cprakhar/datawhiz/utils/password"
 	"github.com/cprakhar/datawhiz/utils/response"
-	"github.com/cprakhar/datawhiz/utils/secure"
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/markbates/goth/gothic"
 )
 
 type RegisterRequest struct {
@@ -96,16 +95,7 @@ func (h *Handler) HandleLogin(ctx *gin.Context) {
 		return
 	}
 
-	err = secure.SetSessionCookie(ctx,
-		map[string]interface{}{
-			"user_id": dbUser.ID,
-			"email":   dbUser.Email,
-		},
-	)
-	if err != nil {
-		response.InternalError(ctx, err)
-		return
-	}
+	
 	// Return safe user fields only
 	safeUser := &users.ResponseUser{
 		ID:            dbUser.ID,
@@ -114,23 +104,51 @@ func (h *Handler) HandleLogin(ctx *gin.Context) {
 		AvatarURL:     dbUser.AvatarURL,
 		OAuthProvider: dbUser.OAuthProvider,
 	}
-	response.JSON(ctx, http.StatusOK, "User logged in successfully", safeUser)
-}
 
-// HandleLogout handles user logout by clearing the session cookie.
-func (h *Handler) HandleLogout(ctx *gin.Context) {
-	session := sessions.Default(ctx)
-	userID := session.Get("user_id")
-	
-	poolmanager.DeactivateAllUserPools(userID.(string))
-	err := connections.SetAllConnectionsInactiveForUser(h.Cfg.DBClient, userID.(string))
+	session, err := gothic.Store.Get(ctx.Request, gothic.SessionName)
 	if err != nil {
 		response.InternalError(ctx, err)
 		return
 	}
 
-	session.Clear()
-	if err := session.Save(); err != nil {
+	session.Values["user_id"] = dbUser.ID
+	session.Values["email"] = dbUser.Email
+
+	err = session.Save(ctx.Request, ctx.Writer)
+	if err != nil {
+		response.InternalError(ctx, err)
+		return
+	}
+
+	response.JSON(ctx, http.StatusOK, "User logged in successfully", safeUser)
+}
+
+// HandleLogout handles user logout by clearing the session cookie.
+func (h *Handler) HandleLogout(ctx *gin.Context) {
+	session, err := gothic.Store.Get(ctx.Request, gothic.SessionName)
+	if err != nil {
+		response.InternalError(ctx, err)
+		return
+	}
+	if session == nil {
+		response.Unauthorized(ctx, "User not logged in")
+		return
+	}
+
+	userID := session.Values["user_id"]
+	
+	poolmanager.DeactivateAllUserPools(userID.(string))
+	err = connections.SetAllConnectionsInactiveForUser(h.Cfg.DBClient, userID.(string))
+	if err != nil {
+		response.InternalError(ctx, err)
+		return
+	}
+
+	session.Values["user_id"] = nil
+	session.Values["email"] = nil
+	session.Options.MaxAge = -1 // Clear the session cookie
+
+	if err := session.Save(ctx.Request, ctx.Writer); err != nil {
 		response.InternalError(ctx, err)
 		return
 	}

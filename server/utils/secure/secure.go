@@ -7,22 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
-
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-gonic/gin"
 )
-
-// SetSessionCookie sets a session cookie with the provided data in the Gin context.
-func SetSessionCookie(ctx *gin.Context, data map[string]interface{}) error {
-	session := sessions.Default(ctx)
-	for key, value := range data {
-		session.Set(key, value)
-	}
-	if err := session.Save(); err != nil {
-		return err
-	}
-	return nil
-}
 
 // Encrypt encrypts the provided data using AES encryption with the given secret key.
 func Encrypt(data, secretKey string) (string, error) {

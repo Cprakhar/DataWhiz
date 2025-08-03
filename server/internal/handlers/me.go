@@ -5,14 +5,16 @@ import (
 
 	"github.com/cprakhar/datawhiz/internal/database/users"
 	"github.com/cprakhar/datawhiz/utils/response"
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
 
 // HandleMe retrieves the current user's information based on the session.
 func (h *Handler) HandleMe(ctx *gin.Context) {
-	session := sessions.Default(ctx)
-	userID := session.Get("user_id")
+	userID, exists := ctx.Get("user_id")
+	if !exists {
+		response.Unauthorized(ctx, "User not authenticated")
+		return
+	}
 
 	userInfo, err := users.GetUserByID(h.Cfg.DBClient, userID.(string))
 	if err != nil || userInfo == nil {

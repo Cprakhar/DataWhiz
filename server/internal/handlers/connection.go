@@ -8,7 +8,6 @@ import (
 	dbdriver "github.com/cprakhar/datawhiz/internal/db_driver"
 	"github.com/cprakhar/datawhiz/utils/response"
 	"github.com/cprakhar/datawhiz/utils/secure"
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
 
@@ -41,8 +40,7 @@ func (h *Handler) HandlePingConnection(ctx *gin.Context) {
 
 // HandleCreateConnection creates a new database connection based on the provided request.
 func (h *Handler) HandleCreateConnection(ctx *gin.Context) {
-	session := sessions.Default(ctx)
-	userID := session.Get("user_id")
+	userID, _ := ctx.Get("user_id")
 
 	var req schema.ConnectionRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -153,10 +151,9 @@ func (h *Handler) HandleCreateConnection(ctx *gin.Context) {
 
 // HandleGetConnections retrieves all connections for the authenticated user.
 func (h *Handler) HandleGetConnections(ctx *gin.Context) {
-    session := sessions.Default(ctx)
-    userID := session.Get("user_id").(string)
+	userID, _ := ctx.Get("user_id")
 
-    conns, err := connections.GetConnectionsByUserID(h.Cfg.DBClient, userID)
+    conns, err := connections.GetConnectionsByUserID(h.Cfg.DBClient, userID.(string))
     if err != nil {
         response.InternalError(ctx, err)
         return
@@ -171,8 +168,8 @@ func (h *Handler) HandleGetConnections(ctx *gin.Context) {
 
 // HandleDeleteConnection deletes a connection by its ID for the authenticated user.
 func (h *Handler) HandleDeleteConnection(ctx *gin.Context) {
-	session := sessions.Default(ctx)
-	userID := session.Get("user_id").(string)
+	userID, _ := ctx.Get("user_id")
+
 	if userID == "" {
 		response.Unauthorized(ctx, "Authentication required")
 		return
@@ -183,7 +180,7 @@ func (h *Handler) HandleDeleteConnection(ctx *gin.Context) {
 		response.BadRequest(ctx, "Connection ID is required", nil)
 		return
 	}
-	err := connections.DeleteConnection(h.Cfg.DBClient, connID, userID)
+	err := connections.DeleteConnection(h.Cfg.DBClient, connID, userID.(string))
 	if err != nil {
 		response.InternalError(ctx, err)
 		return
@@ -194,8 +191,7 @@ func (h *Handler) HandleDeleteConnection(ctx *gin.Context) {
 
 // HandleGetConnection retrieves a specific connection by its ID for the authenticated user.
 func (h *Handler) HandleGetConnection(ctx *gin.Context) {
-	session := sessions.Default(ctx)
-	userID := session.Get("user_id")
+	userID, _ := ctx.Get("user_id")
 
 	connID := ctx.Param("id")
 	if connID == "" {
