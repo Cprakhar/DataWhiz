@@ -1,6 +1,7 @@
 package router
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -37,9 +38,10 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 	store.Options.SameSite = sameSite
 
 	gothic.Store = store
+	log.Println(cfg.Env.SessionSecure)
 
 	cors := cors.New(cors.Config{
-		AllowOrigins:     []string{cfg.Env.FrontendBaseURL},
+		AllowOrigins:     []string{cfg.Env.FrontendBaseURL, cfg.Env.BackendBaseURL},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH","DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},

@@ -46,6 +46,7 @@ export const manualSchema = z.object({
   sslMode: z.boolean().optional(),
   dbName: z.string().optional(),
   dbFilePath: z.string().optional(),
+  isSRV: z.boolean().optional()
 }).superRefine((data, ctx) => {
   if (data.dbType === "sqlite") {
     if (!data.dbFilePath || data.dbFilePath.trim().length === 0) {

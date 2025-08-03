@@ -40,7 +40,7 @@ export default function ManualTab({form, errors, handleChange}: ManualTabProps) 
           {form.dbType === "mongodb" && (
            <ToggleButton 
             className="max-w-fit"
-            checked={form.isSRV ?? false}
+            checked={form.host === "localhost" ? false : form.isSRV || false}
             onChange={val => {
                 if (form.host !== "localhost") handleChange("isSRV", val);
               }
@@ -61,7 +61,7 @@ export default function ManualTab({form, errors, handleChange}: ManualTabProps) 
                 placeholder={defaults.host}
               />
             </div>
-            {form.dbType === "mongodb" && !form.isSRV && <FormField
+            {!form.isSRV && <FormField
               name="port"
               label="Port"
               value={form.port ?? defaults.port}
