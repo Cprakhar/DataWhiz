@@ -2,6 +2,8 @@
 
 Datawhiz is a modern, fullstack data platform for connecting, exploring, and managing multiple databases from a single dashboard. It supports SQL and NoSQL (Postgres, MySQL, SQLite, MongoDB), provides a unified UI for schema/record browsing, and is designed for extensibility and developer productivity.
 
+Live: https://client-2r99.onrender.com/, first need to trigger the start of the backend: https://server-6zuj.onrender.com
+
 ---
 
 ## Project Directory Structure
@@ -38,7 +40,6 @@ datawhiz/
 - Full CRUD operations for all supported databases
 
 ---
-
 
 ## Local Development
 
